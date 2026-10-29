@@ -14,7 +14,7 @@
       <div @keydown.capture="handleKeydown">
         <!-- Email headers -->
         <div
-          v-if="hasMultipleSenders"
+          v-if="senderAccounts.length"
           class="mx-6 md:mx-5 flex items-center gap-2 border-t py-2.5 h-12.5"
         >
           <span class="text-p-xs text-ink-gray-4">{{ __("From") }}:</span>
@@ -23,8 +23,21 @@
             type="select"
             variant="ghost"
             class="w-full"
-            :placeholder="__('')"
-            :options="from"
+            :placeholder="__('Choose a mailbox')"
+            :options="[{ label: __('Choose a mailbox'), value: '' }, ...from]"
+            :disabled="!senderPolicyReady || !!receivingEmail"
+          />
+        </div>
+        <div
+          v-if="senderPolicyError"
+          class="mx-6 md:mx-5 py-2 text-sm"
+          role="alert"
+        >
+          {{ __(senderPolicyError) }}
+          <Button
+            :label="__('Retry')"
+            variant="ghost"
+            @click="loadSenderPolicy"
           />
         </div>
         <div class="mx-6 md:mx-5 flex items-center gap-2 border-y py-2.5">
@@ -247,6 +260,7 @@ import {
   uploadFunction,
   validateEmailWithZod,
 } from "@/utils";
+import { useReplySender } from "@/composables/useReplySender";
 import { useStorage } from "@vueuse/core";
 import {
   FileUploader,
@@ -384,31 +398,28 @@ function toggleBCC() {
     });
 }
 
-const fromEmail = useStorage<string | "">("from-email", "");
-
 const outgoingEmails = computed<{ email_account: string; email_id: string }[]>(
   () => userResource.data?.outgoing_emails ?? []
 );
-
-// selected mail from the outgoing emails list
-const selectedFromEmail = computed(() =>
-  outgoingEmails.value.find((e) => e.email_id === fromEmail.value)
-);
+const legacyFromEmail = useStorage<string>("from-email", "");
+const {
+  fromEmail,
+  ready: senderPolicyReady,
+  receivingMailboxMode,
+  receivingEmail,
+  error: senderPolicyError,
+  reload: loadSenderPolicy,
+  selected: selectedFromEmail,
+  options: senderAccounts,
+} = useReplySender(() => props.ticketId, outgoingEmails, legacyFromEmail);
 
 const from = computed(() => {
-  if (!outgoingEmails.value.length) return [];
-  if (
-    outgoingEmails.value.length === 1 &&
-    outgoingEmails.value[0].email_id === userResource.data?.email
-  )
-    return [];
-  return outgoingEmails.value.map((e) => ({
+  if (!senderAccounts.value.length) return [];
+  return senderAccounts.value.map((e) => ({
     label: e.email_account + " <" + e.email_id + ">",
     value: e.email_id,
   }));
 });
-
-const hasMultipleSenders = computed(() => (from?.value.length ?? 0) > 1);
 
 const attachments = ref([]);
 const attachmentUploading = ref(false);
@@ -518,7 +529,9 @@ const isDisabled = computed(
   () =>
     (isContentEmpty(newEmail.value) && isContentEmpty(quotedContent.value)) ||
     sendMail.loading ||
-    isUploading.value
+    isUploading.value ||
+    !senderPolicyReady.value ||
+    (receivingMailboxMode.value && !selectedFromEmail.value)
 );
 
 function submitMail() {
@@ -535,6 +548,14 @@ function submitMail() {
     toast.warning(
       "Email has no recipients. Please add at least one recipient (To, Cc, or Bcc) before sending."
     );
+    return false;
+  }
+
+  if (
+    !senderPolicyReady.value ||
+    (receivingMailboxMode.value && !selectedFromEmail.value)
+  ) {
+    toast.warning(__("Choose a From mailbox before sending this reply."));
     return false;
   }
 
@@ -758,16 +779,6 @@ watch(
     if (isContentEmpty(newEmail.value) && !quotedContent.value) {
       newEmail.value = emailSignature.value;
       focusEditorAtStart();
-    }
-  },
-  { immediate: true }
-);
-
-watch(
-  from,
-  (fromOptions) => {
-    if (!fromOptions.find((f) => f.value === fromEmail.value)) {
-      fromEmail.value = fromOptions.length ? fromOptions[0].value : "";
     }
   },
   { immediate: true }

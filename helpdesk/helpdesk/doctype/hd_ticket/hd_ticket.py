@@ -520,7 +520,80 @@ class HDTicket(Document):
 
         return bool(int(skip))
 
+    @frappe.whitelist()
+    def get_reply_sender(self):
+        """Return this ticket's incoming mailbox policy for the reply composer."""
+        if not is_agent():
+            frappe.throw(
+                _("You are not permitted to reply as an agent"), frappe.PermissionError
+            )
+        self.check_permission("read")
+        enabled = bool(
+            cint(
+                frappe.db.get_single_value(
+                    "HD Settings", "reply_from_receiving_mailbox"
+                )
+            )
+        )
+        sender = self._receiving_mailbox() if enabled else None
+        return {"ticket": str(self.name), "enabled": enabled, "sender": sender}
+
+    def _receiving_mailbox(self):
+        # The ticket permission is checked by the public caller; never use a sent reply.
+        incoming = frappe.get_all(
+            "Communication",
+            filters={
+                "reference_doctype": "HD Ticket",
+                "reference_name": str(self.name),
+                "sent_or_received": "Received",
+                "communication_medium": "Email",
+            },
+            fields=["email_account"],
+            order_by="creation desc, name desc",
+            limit_page_length=1,
+        )
+        if not incoming or not incoming[0].email_account:
+            return None
+        account = frappe.db.get_value(
+            "Email Account",
+            incoming[0].email_account,
+            ["name", "email_id", "enable_outgoing"],
+            as_dict=True,
+        )
+        if not account or not account.enable_outgoing:
+            frappe.throw(
+                _(
+                    "The receiving mailbox is not enabled for outgoing email. Contact your administrator."
+                )
+            )
+        return {"email_account": account.name, "email_id": account.email_id}
+
     def _resolve_sender_email(self, email_account_name, from_email_id):
+        if not cint(
+            frappe.db.get_single_value("HD Settings", "reply_from_receiving_mailbox")
+        ):
+            return self._resolve_legacy_sender_email(email_account_name, from_email_id)
+        self.check_permission("read")
+        if incoming := self._receiving_mailbox():
+            return (
+                frappe._dict(
+                    name=incoming["email_account"], email_id=incoming["email_id"]
+                ),
+                incoming["email_account"],
+            )
+        if not email_account_name or not from_email_id:
+            frappe.throw(_("Choose a From mailbox before sending this reply."))
+        account = frappe.db.get_value(
+            "Email Account",
+            {"name": email_account_name, "enable_outgoing": 1},
+            ["name", "email_id"],
+            as_dict=True,
+        )
+        if not account or account.email_id.lower() != from_email_id.lower():
+            frappe.throw(_("Choose an enabled outgoing mailbox."))
+        return account, account.name
+
+    def _resolve_legacy_sender_email(self, email_account_name, from_email_id):
         if not email_account_name:
             sender_email = self.sender_email()
             return sender_email, (sender_email.name if sender_email else None)
@@ -684,6 +757,12 @@ class HDTicket(Document):
             sender_email, email_account_name = self._resolve_sender_email(
                 email_account_name, from_email_id
             )
+            if cint(
+                frappe.db.get_single_value(
+                    "HD Settings", "reply_from_receiving_mailbox"
+                )
+            ):
+                sender = sender_email.email_id
 
         if recipients == "Administrator":
             recipients = frappe.get_value("User", "Administrator", "email")
