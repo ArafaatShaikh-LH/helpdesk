@@ -11,7 +11,8 @@ type SenderPolicy = {
 export function useReplySender(
   ticketId: () => string | number,
   accounts: Ref<Mailbox[]>,
-  legacySender: Ref<string>
+  legacySender: Ref<string>,
+  businessAccounts: Ref<Mailbox[]>
 ) {
   const fromEmail = ref("");
   const ready = ref(false);
@@ -22,11 +23,14 @@ export function useReplySender(
   let generation = 0;
   const request = createResource({ url: "run_doc_method" });
   const options = computed(() => {
+    const eligible = receivingMailboxMode.value
+      ? businessAccounts.value
+      : accounts.value;
     const incoming = receivingAccount.value;
     return incoming &&
-      !accounts.value.some((a) => a.email_account === incoming.email_account)
-      ? [...accounts.value, incoming]
-      : accounts.value;
+      !eligible.some((a) => a.email_account === incoming.email_account)
+      ? [...eligible, incoming]
+      : eligible;
   });
   const selected = computed(() =>
     options.value.find((account) => account.email_id === fromEmail.value)

@@ -589,7 +589,11 @@ class HDTicket(Document):
             ["name", "email_id"],
             as_dict=True,
         )
-        if not account or account.email_id.lower() != from_email_id.lower():
+        if (
+            not account
+            or account.name == "No Reply"
+            or account.email_id.lower() != from_email_id.lower()
+        ):
             frappe.throw(_("Choose an enabled outgoing mailbox."))
         return account, account.name
 

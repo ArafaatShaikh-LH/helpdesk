@@ -69,6 +69,19 @@ class TestReplySender(FrappeTestCase):
             with self.assertRaises(frappe.ValidationError):
                 self.ticket._resolve_sender_email(self.account, self.address)
 
+    def test_no_reply_is_not_a_manual_agent_sender(self):
+        with self.set_user(self.agent):
+            with patch(
+                "frappe.db.get_value",
+                return_value=frappe._dict(
+                    name="No Reply", email_id="donotreply@example.invalid"
+                ),
+            ):
+                with self.assertRaises(frappe.ValidationError):
+                    self.ticket._resolve_sender_email(
+                        "No Reply", "donotreply@example.invalid"
+                    )
+
     def test_guest_cannot_read_sender_policy(self):
         with self.set_user("Guest"), self.assertRaises(frappe.PermissionError):
             self.ticket.get_reply_sender()
