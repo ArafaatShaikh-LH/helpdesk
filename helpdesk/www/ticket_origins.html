@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Original emails and mailboxes</title>
+  <style>
+    body { font: 16px/1.5 system-ui, sans-serif; color: #18283c; max-width: 1100px; margin: 30px auto; padding: 20px; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+    th, td { text-align: left; border: 1px solid #cbd5df; padding: 10px; overflow-wrap: anywhere; }
+    .notice { background: #fff2d6; padding: 14px; }
+    .table { overflow: auto; }
+    a { color: #1457a3; }
+  </style>
+  <h1>Original emails and mailboxes</h1>
+  <p>Ticket #{{ ticket | e }} · <a href="/helpdesk/tickets/{{ ticket | urlencode }}">Back to ticket</a></p>
+  <h2>Original receiving mailbox(es)</h2>
+  <p>{% if mailboxes %}{{ mailboxes | join(', ') | e }}{% else %}No received email records found in the accessible ticket history.{% endif %}</p>
+  <p class="notice">This view reads stored receiving accounts from the current conversation and accessible merged source tickets. Current-ticket rows may include merged copies; they are not a count of distinct original receipts. It does not reconstruct missing history or reverse a merge. Unknown accounts remain visible for reconciliation.</p>
+  <p>Accessible ticket histories: {% for name in source_tickets %}<a href="/helpdesk/tickets/{{ name | urlencode }}">#{{ name | e }}</a>{% if not loop.last %}, {% endif %}{% endfor %}. Rows from merged source tickets let you inspect the original source records. Links retain normal permissions.</p>
+  <div class="table"><table>
+    <thead><tr><th>Source ticket</th><th>Communication record</th><th>Original receiving mailbox</th><th>Received / stored time</th><th>Message ID</th></tr></thead>
+    <tbody>{% for row in messages %}<tr>
+      <td><a href="/helpdesk/tickets/{{ row.reference_name | urlencode }}">#{{ row.reference_name | e }}</a>{% if row.reference_name == ticket %}<br />Current conversation{% else %}<br />Merged source history{% endif %}</td>
+      <td><a href="/app/communication/{{ row.name | urlencode }}">{{ row.name | e }}</a><br />Open email and attachments</td>
+      <td>{{ (row.email_account or 'Unknown — needs reconciliation') | e }}</td>
+      <td>{{ (row.email_date or row.creation) | e }}</td>
+      <td>{{ (row.message_id or 'Not recorded') | e }}</td>
+    </tr>{% else %}<tr><td colspan="5">No received messages found.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</html>
