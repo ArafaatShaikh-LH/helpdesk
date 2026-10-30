@@ -10,7 +10,7 @@ When enabled:
 - A disabled or deleted receiving account blocks sending with an administrator-facing error; no default sender is substituted.
 - With no incoming account metadata, the composer starts blank and the agent must choose an enabled sender. The API rejects a missing choice or an address/account mismatch.
 - The sender is scoped to the ticket. Old cross-ticket local storage is ignored in this mode. Late responses from another ticket cannot change the active selection; lookup failures block sending until retried.
-- The receiving mailbox appears in the picker even if absent from the agent's saved account preferences, because the server has checked agent role, ticket read permission and outgoing enablement. Manual choices use the agent's existing available sender list.
+- The receiving mailbox appears in the picker even if absent from the agent's saved account preferences, because the server has checked agent role, ticket read permission and outgoing enablement. Tickets without incoming account metadata offer every enabled business mailbox to all agents, regardless of their saved preferences or team memberships. The system **No Reply** account is excluded from manual agent choices and rejected by the reply API.
 - System notifications, account invitations, resets, incoming collection, existing queued mail and stored historic Communications are unaffected. The system default Email Account can remain for authentication emails; it is not an agent-reply fallback in this mode.
 - Bulk replies with no receiving account require a sender-capable workflow; they cannot silently substitute the global default.
 

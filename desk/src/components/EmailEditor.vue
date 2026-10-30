@@ -401,6 +401,15 @@ function toggleBCC() {
 const outgoingEmails = computed<{ email_account: string; email_id: string }[]>(
   () => userResource.data?.outgoing_emails ?? []
 );
+const businessEmails = computed<{ email_account: string; email_id: string }[]>(
+  () =>
+    (userResource.data?.available_emails ?? [])
+      .filter((account) => account.name !== "No Reply")
+      .map((account) => ({
+        email_account: account.name,
+        email_id: account.email_id,
+      }))
+);
 const legacyFromEmail = useStorage<string>("from-email", "");
 const {
   fromEmail,
@@ -411,7 +420,12 @@ const {
   reload: loadSenderPolicy,
   selected: selectedFromEmail,
   options: senderAccounts,
-} = useReplySender(() => props.ticketId, outgoingEmails, legacyFromEmail);
+} = useReplySender(
+  () => props.ticketId,
+  outgoingEmails,
+  legacyFromEmail,
+  businessEmails
+);
 
 const from = computed(() => {
   if (!senderAccounts.value.length) return [];
