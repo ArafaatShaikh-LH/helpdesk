@@ -124,6 +124,27 @@ const listSelections = ref(new Set());
 const showBulkReplyModal = ref(false);
 const showBulkEditModal = ref(false);
 const showBulkAssignModal = ref(false);
+const AUTO_REFRESH_INTERVAL_MS = 30_000;
+let autoRefreshTimer: ReturnType<typeof setInterval> | undefined;
+
+function refreshVisibleTicketView() {
+  if (
+    document.visibilityState !== "visible" ||
+    listViewRef.value?.list?.loading ||
+    showExportModal.value ||
+    viewDialogConfig.show ||
+    showBulkReplyModal.value ||
+    showBulkEditModal.value ||
+    showBulkAssignModal.value
+  ) {
+    return;
+  }
+  listViewRef.value?.reload();
+}
+
+function refreshWhenTabBecomesVisible() {
+  if (document.visibilityState === "visible") refreshVisibleTicketView();
+}
 
 // Replying, assigning and editing in bulk are agent-side actions only.
 const agentOnly = () => !isCustomerPortal.value;
@@ -478,12 +499,22 @@ onMounted(() => {
     $socket.on("helpdesk:new-ticket", () => {
       listViewRef.value?.reload();
     });
+    autoRefreshTimer = setInterval(
+      refreshVisibleTicketView,
+      AUTO_REFRESH_INTERVAL_MS
+    );
+    document.addEventListener("visibilitychange", refreshWhenTabBecomesVisible);
   }
 });
 
 onUnmounted(() => {
   if (!isCustomerPortal.value) {
     $socket.off("helpdesk:new-ticket");
+    clearInterval(autoRefreshTimer);
+    document.removeEventListener(
+      "visibilitychange",
+      refreshWhenTabBecomesVisible
+    );
   }
 });
 
