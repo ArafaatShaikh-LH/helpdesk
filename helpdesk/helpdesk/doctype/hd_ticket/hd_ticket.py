@@ -536,7 +536,20 @@ class HDTicket(Document):
             )
         )
         sender = self._receiving_mailbox() if enabled else None
-        return {"ticket": str(self.name), "enabled": enabled, "sender": sender}
+        available_senders = []
+        if enabled and not sender:
+            available_senders = frappe.get_all(
+                "Email Account",
+                filters={"enable_outgoing": 1, "name": ["!=", "No Reply"]},
+                fields=["name as email_account", "email_id"],
+                order_by="name asc",
+            )
+        return {
+            "ticket": str(self.name),
+            "enabled": enabled,
+            "sender": sender,
+            "available_senders": available_senders,
+        }
 
     def _receiving_mailbox(self):
         # The ticket permission is checked by the public caller; never use a sent reply.

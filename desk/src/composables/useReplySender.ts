@@ -6,25 +6,26 @@ type SenderPolicy = {
   ticket: string;
   enabled: boolean;
   sender: Mailbox | null;
+  available_senders: Mailbox[];
 };
 
 export function useReplySender(
   ticketId: () => string | number,
   accounts: Ref<Mailbox[]>,
-  legacySender: Ref<string>,
-  businessAccounts: Ref<Mailbox[]>
+  legacySender: Ref<string>
 ) {
   const fromEmail = ref("");
   const ready = ref(false);
   const receivingMailboxMode = ref(false);
   const receivingEmail = ref("");
   const receivingAccount = ref<Mailbox | null>(null);
+  const availableSenders = ref<Mailbox[]>([]);
   const error = ref("");
   let generation = 0;
   const request = createResource({ url: "run_doc_method" });
   const options = computed(() => {
     const eligible = receivingMailboxMode.value
-      ? businessAccounts.value
+      ? availableSenders.value
       : accounts.value;
     const incoming = receivingAccount.value;
     return incoming &&
@@ -54,6 +55,7 @@ export function useReplySender(
     fromEmail.value = "";
     receivingEmail.value = "";
     receivingAccount.value = null;
+    availableSenders.value = [];
     error.value = "";
     try {
       const response = await request.submit({
@@ -65,12 +67,16 @@ export function useReplySender(
       const policy: SenderPolicy = response?.message ?? response;
       if (
         String(policy?.ticket) !== ticket ||
-        typeof policy.enabled !== "boolean"
+        typeof policy.enabled !== "boolean" ||
+        (policy.enabled &&
+          !policy.sender &&
+          !Array.isArray(policy.available_senders))
       ) {
         throw new Error("Invalid sender policy");
       }
       receivingMailboxMode.value = policy.enabled;
       receivingAccount.value = policy.enabled ? policy.sender : null;
+      availableSenders.value = policy.enabled ? policy.available_senders ?? [] : [];
       receivingEmail.value = receivingAccount.value?.email_id ?? "";
       fromEmail.value = policy.enabled
         ? receivingEmail.value
