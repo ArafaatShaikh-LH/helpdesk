@@ -87,7 +87,7 @@ import { globalStore } from "@/stores/globalStore";
 import { useTicketStatusStore } from "@/stores/ticketStatus";
 import { __ } from "@/translation";
 import { View } from "@/types";
-import { isCustomerPortal, shortDuration } from "@/utils";
+import { dateFormat, isCustomerPortal, shortDuration } from "@/utils";
 import { Badge, dayjsLocal, Tooltip, usePageMeta } from "frappe-ui";
 import { computed, h, onMounted, onUnmounted, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -168,9 +168,18 @@ const selectBannerActions = [
   },
 ];
 
+function renderTicketDeadline({ item }: { item?: string | null }) {
+  return h("span", {
+    class: "truncate text-p-xs",
+    textContent: item ? dateFormat(item) : "",
+  });
+}
+
 const options = computed(() => ({
   doctype: "HD Ticket",
   columnConfig: {
+    custom_due_date_and_time: { custom: renderTicketDeadline },
+    custom_follow_up_at: { custom: renderTicketDeadline },
     subject: {
       custom: ({ row, item }) => {
         const seenBy = row._seen ? JSON.parse(row._seen) : [];
