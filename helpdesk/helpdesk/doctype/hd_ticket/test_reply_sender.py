@@ -49,7 +49,12 @@ class TestReplySender(FrappeTestCase):
 
     def test_no_incoming_requires_explicit_sender(self):
         with self.set_user(self.agent):
-            self.assertIsNone(self.ticket.get_reply_sender()["sender"])
+            policy = self.ticket.get_reply_sender()
+            self.assertIsNone(policy["sender"])
+            self.assertIn(
+                {"email_account": self.account, "email_id": self.address},
+                policy["available_senders"],
+            )
             with self.assertRaises(frappe.ValidationError):
                 self.ticket._resolve_sender_email(None, None)
             sender, name = self.ticket._resolve_sender_email(self.account, self.address)
@@ -81,6 +86,14 @@ class TestReplySender(FrappeTestCase):
                     self.ticket._resolve_sender_email(
                         "No Reply", "donotreply@example.invalid"
                     )
+
+    def test_no_reply_is_not_a_sender_option(self):
+        with self.set_user(self.agent), patch("frappe.get_all", return_value=[]) as get_all:
+            self.ticket.get_reply_sender()
+        self.assertEqual(
+            get_all.call_args.kwargs["filters"],
+            {"enable_outgoing": 1, "name": ["!=", "No Reply"]},
+        )
 
     def test_guest_cannot_read_sender_policy(self):
         with self.set_user("Guest"), self.assertRaises(frappe.PermissionError):
