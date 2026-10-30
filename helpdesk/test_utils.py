@@ -890,3 +890,23 @@ def get_number_cards(agent: str, from_date: str, to_date: str) -> dict[str, dict
     filters = frappe._dict(from_date=from_date, to_date=to_date, agent=agent)
     cards = HelpdeskDashboard(filters).get_number_card_data()
     return {card["title"]: card for card in cards}
+
+
+def make_ticket_mail(ticket, account, direction="Received"):
+    """Create a synthetic ticket email with its receiving-account metadata."""
+    communication = frappe.get_doc(
+        {
+            "doctype": "Communication",
+            "communication_type": "Communication",
+            "communication_medium": "Email",
+            "sent_or_received": direction,
+            "sender": unique_email("supplier"),
+            "recipients": frappe.db.get_value("Email Account", account, "email_id"),
+            "subject": "Synthetic mailbox routing test",
+            "content": "Synthetic mailbox routing test",
+            "reference_doctype": "HD Ticket",
+            "reference_name": ticket.name,
+        }
+    ).insert(ignore_permissions=True)
+    communication.db_set("email_account", account)
+    return communication

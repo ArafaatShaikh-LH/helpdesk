@@ -84,6 +84,7 @@
   "reply_email_to_agent_content",
   "reply_from_agent_section",
   "enable_reply_email_via_agent",
+  "reply_from_receiving_mailbox",
   "reply_via_agent_email_content"
  ],
  "fields": [
@@ -552,6 +553,13 @@
    "fieldname": "auto_set_customer_from_contact",
    "fieldtype": "Check",
    "label": "Auto-set customer from contact"
+  },
+  {
+   "fieldname": "reply_from_receiving_mailbox",
+   "fieldtype": "Check",
+   "label": "Reply from receiving mailbox",
+   "default": "0",
+   "description": "Use the latest incoming email mailbox for agent replies. Without an incoming mailbox, the agent must select a From mailbox. System notification and password reset senders are unchanged."
   }
  ],
  "grid_page_length": 50,
