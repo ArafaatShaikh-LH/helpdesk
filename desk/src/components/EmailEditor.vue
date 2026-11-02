@@ -217,6 +217,12 @@
             <EditorTableMenu />
           </div>
           <div class="flex shrink-0 items-center justify-end gap-x-2">
+            <span
+              v-if="!isContentEmpty(newEmail) && !isOnlySignature(newEmail)"
+              class="hidden text-p-xs text-ink-gray-5 md:inline"
+            >
+              {{ __("Draft saved on this device") }}
+            </span>
             <Button label="Discard" @click="handleDiscard" />
             <!-- A disabled button fires no pointer events, so the span
                  carries the hover for the tooltip -->
@@ -358,7 +364,9 @@ function focusEditorAtStart() {
 
 const cachedEmail = useStorage<null | string>(
   "emailBoxContent" + props.ticketId,
-  null
+  null,
+  undefined,
+  { flush: "sync" }
 );
 
 const newEmail = ref<null | string>(cachedEmail.value);
@@ -374,7 +382,9 @@ const userResource = getUserEmailInfo();
 
 const quotedContent = useStorage<null | string>(
   "quotedEmailBoxContent" + props.ticketId,
-  null
+  null,
+  undefined,
+  { flush: "sync" }
 );
 const quotedContentRef = ref<HTMLElement | null>(null);
 const isQuoteExpanded = ref(false);
@@ -385,9 +395,24 @@ function onQuotedInput() {
   quotedContent.value = el.innerHTML || null;
 }
 
-const toEmailsClone = ref([...props.toEmails]);
-const ccEmailsClone = ref([...props.ccEmails]);
-const bccEmailsClone = ref([...props.bccEmails]);
+const toEmailsClone = useStorage<string[]>(
+  "emailBoxTo" + props.ticketId,
+  [...props.toEmails] as string[],
+  undefined,
+  { flush: "sync" }
+);
+const ccEmailsClone = useStorage<string[]>(
+  "emailBoxCc" + props.ticketId,
+  [...props.ccEmails] as string[],
+  undefined,
+  { flush: "sync" }
+);
+const bccEmailsClone = useStorage<string[]>(
+  "emailBoxBcc" + props.ticketId,
+  [...props.bccEmails] as string[],
+  undefined,
+  { flush: "sync" }
+);
 const showCC = ref(false);
 const showBCC = ref(false);
 const cc = computed(() => (ccEmailsClone.value?.length ? true : false));
@@ -434,7 +459,12 @@ const from = computed(() => {
   }));
 });
 
-const attachments = ref([]);
+const attachments = useStorage<any[]>(
+  "emailBoxAttachments" + props.ticketId,
+  [],
+  undefined,
+  { flush: "sync" }
+);
 const attachmentUploading = ref(false);
 const { isUploading: editorUploading, track, dropUnused } = useUploadTracker();
 
@@ -514,6 +544,7 @@ const sendMail = createResource({
     pendingRow = null;
     sentDraft = null;
     savedReplyActionsRef.value?.submit();
+    resetRecipients();
     emit("submit");
 
     if (isManager) {
@@ -677,13 +708,18 @@ function resetState() {
   focusEditorAtStart();
 }
 
+function resetRecipients() {
+  toEmailsClone.value = [...props.toEmails] as string[];
+  ccEmailsClone.value = [...props.ccEmails] as string[];
+  bccEmailsClone.value = [...props.bccEmails] as string[];
+}
+
 function handleDiscard() {
   attachments.value = [];
   savedReplyActionsRef.value?.clear();
   newEmail.value = getInitialContent();
   quotedContent.value = null;
-  ccEmailsClone.value = [];
-  bccEmailsClone.value = [];
+  resetRecipients();
   showCC.value = false;
   showBCC.value = false;
   isQuoteExpanded.value = false;
@@ -757,19 +793,23 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-watch(newEmail, (newValue, oldValue) => {
-  // The signature drops into an empty editor on load and on every reply. That
-  // is not the agent typing, and broadcasting it would show a typing indicator
-  // to everyone else on the ticket.
-  if (
-    newValue !== oldValue &&
-    !isContentEmpty(newValue) &&
-    !isOnlySignature(newValue)
-  ) {
-    onUserType();
-  }
-  cachedEmail.value = isOnlySignature(newValue) ? null : newValue;
-});
+watch(
+  newEmail,
+  (newValue, oldValue) => {
+    // The signature drops into an empty editor on load and on every reply. That
+    // is not the agent typing, and broadcasting it would show a typing indicator
+    // to everyone else on the ticket.
+    if (
+      newValue !== oldValue &&
+      !isContentEmpty(newValue) &&
+      !isOnlySignature(newValue)
+    ) {
+      onUserType();
+    }
+    cachedEmail.value = isOnlySignature(newValue) ? null : newValue;
+  },
+  { flush: "sync" }
+);
 
 watch(quotedContent, (newVal, oldVal) => {
   if (!oldVal && newVal) {
@@ -813,6 +853,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   replyComposer.value = null;
   cleanup();
+  cachedEmail.value = isOnlySignature(newEmail.value) ? null : newEmail.value;
   // the saved draft still references what it shows, so only what it dropped goes
   dropUnused(`${newEmail.value ?? ""}${quotedContent.value ?? ""}`);
 });
