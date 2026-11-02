@@ -748,6 +748,40 @@ class HDTicket(Document):
             self.attach_file_with_doc("Comment", comment, url)
 
     @frappe.whitelist()
+    def get_forward_email(self, communication: str):
+        from helpdesk.api.forward_email import prepare_forward
+
+        return prepare_forward(self, communication)
+
+    @frappe.whitelist(methods=["POST"])
+    def forward_email(
+        self,
+        communication: str,
+        source_modified: str,
+        request_id: str,
+        to: str,
+        from_email: dict,
+        note: str = "",
+        cc: str = "",
+        bcc: str = "",
+        attachments: list[str] | None = None,
+    ):
+        from helpdesk.api.forward_email import send_forward
+
+        return send_forward(
+            self,
+            communication,
+            source_modified,
+            request_id,
+            to,
+            from_email,
+            note,
+            cc,
+            bcc,
+            attachments,
+        )
+
+    @frappe.whitelist()
     def reply_via_agent(
         self,
         message: str,
@@ -1147,6 +1181,10 @@ class HDTicket(Document):
     # is an external dependency. Refer `communication.py` of Frappe framework for more.
     # Since this is called from communication itself, `c` is the communication doc.
     def on_communication_update(self, c):
+        # A forward is an agent-to-third-party message, not a customer response.
+        # Persist the marker because delivery updates can call this hook again.
+        if c.sent_or_received == "Sent" and c.get("custom_hd_forward_source"):
+            return
         # A reply to a merged ticket belongs to its merge target; redirect it there. If no
         # safe target resolves (cycle/dead-end), fall through and handle it here so the
         # reply isn't dropped.
