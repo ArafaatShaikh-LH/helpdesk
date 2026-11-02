@@ -3,16 +3,19 @@
 ## Behaviour
 
 The agent reply composer saves the body, quoted email, To/Cc/Bcc recipients and
-uploaded attachment references in browser storage under the ticket ID. Changes
-are saved synchronously, so
-leaving a ticket immediately after typing does not drop the last edit. Reopening
-the same ticket in the same browser restores the draft. The composer shows
+uploaded attachment references in browser storage under the ticket ID and agent.
+Changes are saved synchronously, so leaving a ticket immediately after typing
+does not drop the last edit. Reopening the same ticket in the same browser
+restores the draft. The composer shows
 “Draft saved on this device” while a message body is present.
 
 Sending or selecting Discard resets the stored draft and recipients. The normal
 reply sender policy still chooses the From mailbox. The draft does not sync
-across browsers or devices. The stored attachment list refers to files already
-uploaded to the ticket; it does not copy file bytes into browser storage.
+across browsers or devices. Drafts saved before agent scoping are not restored
+because those entries did not record who wrote them. Browser storage is not a
+security boundary for devices shared between agents. The stored attachment list
+refers to files already uploaded to the ticket; it does not copy file bytes into
+browser storage.
 
 ## Reason for this change
 
@@ -27,7 +30,8 @@ not silently revert its To/Cc/Bcc choices.
 1. Open a ticket, type a reply, change To/Cc, then click the ticket number or
    navigate away immediately. Return to the ticket and reopen Reply. The text
    and recipients should still be present. Repeat with one uploaded attachment.
-2. Open another ticket. Its reply draft must be independent.
+2. Open another ticket. Its reply draft must be independent. Sign in as another
+   agent in the same browser and confirm the first agent's draft does not appear.
 3. Discard the first draft, leave and return. The discarded text must not return.
 4. Send a reply and return. The sent text must not reappear as a draft.
 

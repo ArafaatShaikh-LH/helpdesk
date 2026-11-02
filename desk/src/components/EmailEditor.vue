@@ -266,6 +266,7 @@ import SavedReplyActions from "@/components/SavedReplyActions/SavedReplyActions.
 import { useTyping } from "@/composables/realtime";
 import { getUserEmailInfo } from "@/composables/useUserEmailInfo";
 import { useUploadTracker } from "@/composables/useUploadTracker";
+import { userStorageKey } from "@/composables/userStorage";
 import { replyComposer } from "@/pages/ticket/modalStates";
 import { useAuthStore } from "@/stores/auth";
 import { useUserStore } from "@/stores/user";
@@ -363,7 +364,7 @@ function focusEditorAtStart() {
 }
 
 const cachedEmail = useStorage<null | string>(
-  "emailBoxContent" + props.ticketId,
+  userStorageKey("emailBoxContent" + props.ticketId),
   null,
   undefined,
   { flush: "sync" }
@@ -381,7 +382,7 @@ function isOnlySignature(content: string | null) {
 const userResource = getUserEmailInfo();
 
 const quotedContent = useStorage<null | string>(
-  "quotedEmailBoxContent" + props.ticketId,
+  userStorageKey("quotedEmailBoxContent" + props.ticketId),
   null,
   undefined,
   { flush: "sync" }
@@ -396,19 +397,19 @@ function onQuotedInput() {
 }
 
 const toEmailsClone = useStorage<string[]>(
-  "emailBoxTo" + props.ticketId,
+  userStorageKey("emailBoxTo" + props.ticketId),
   [...props.toEmails] as string[],
   undefined,
   { flush: "sync" }
 );
 const ccEmailsClone = useStorage<string[]>(
-  "emailBoxCc" + props.ticketId,
+  userStorageKey("emailBoxCc" + props.ticketId),
   [...props.ccEmails] as string[],
   undefined,
   { flush: "sync" }
 );
 const bccEmailsClone = useStorage<string[]>(
-  "emailBoxBcc" + props.ticketId,
+  userStorageKey("emailBoxBcc" + props.ticketId),
   [...props.bccEmails] as string[],
   undefined,
   { flush: "sync" }
@@ -460,7 +461,7 @@ const from = computed(() => {
 });
 
 const attachments = useStorage<any[]>(
-  "emailBoxAttachments" + props.ticketId,
+  userStorageKey("emailBoxAttachments" + props.ticketId),
   [],
   undefined,
   { flush: "sync" }
