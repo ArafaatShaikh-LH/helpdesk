@@ -2,6 +2,13 @@
 
 The desktop ticket header shows Previous and Next beside the existing actions.
 The position counter shows the current ticket's place in the loaded list.
+On desktop widths, a collapsible left pane shows the loaded ticket IDs,
+subjects and statuses in the same order. Clicking a row opens that ticket;
+the active row is highlighted and scrolled into view. The pane remains hidden
+for direct links without a matching list and on smaller screens, where the
+header navigation remains available. The ticket details panel stays on the right.
+Subjects and statuses are kept in memory only. After a page refresh, the pane
+loads them using the standard permission-checked ticket list API.
 
 Navigation follows the exact order of the loaded ticket list, including unsaved
 filters, sorting, saved views and grouped rows. The list's ticket IDs and view
@@ -39,6 +46,8 @@ setup state for a different ticket. Existing draft storage is unchanged.
    own ticket. Also verify the new ticket's timeline shows its own messages.
 4. At the end of a partially loaded list, verify Next is disabled and the
    tooltip explains how to load more.
+5. Open a filtered list and use the left pane. Confirm its rows match the
+   loaded list, the selected row stays visible, and Hide list restores space.
 
 This frontend change requires a new Helpdesk assets build and deployment. It
 changes no server APIs, email routing, ticket records, roles or sharing rules.
