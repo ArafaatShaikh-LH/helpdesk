@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 import frappe
 
 from helpdesk.utils import agent_only, get_agent_name, get_agents_team
@@ -75,6 +77,7 @@ def get_user():
         "availability_changed_on": availability.get("availability_changed_on"),
         "availability_changed_by": availability.get("availability_changed_by"),
         "persona_captured": persona_captured,
+        "manager_overview_url": get_manager_overview_url(current_user, roles) if has_desk_access else None,
     }
 
 
@@ -141,3 +144,23 @@ def set_user_email_accounts(email_accounts: list[str]):
     user.set("user_emails", kept_links + agent_links)
     user.flags.ignore_permlevel_for_fields = ["user_emails"]
     user.save()
+
+
+def get_manager_overview_url(user: str, roles: list[str]) -> str | None:
+    """Expose the configured Insights page only to users who may read it.
+
+    The Insights dashboard remains responsible for its queries and row permissions.
+    No dashboard is published and no role or sharing permission is granted here.
+    """
+    if not {"Insights User", "Insights Admin"}.intersection(roles):
+        return None
+    if "insights" not in frappe.get_installed_apps():
+        return None
+    if not frappe.get_meta("HD Settings").has_field("custom_manager_overview_dashboard"):
+        return None
+    dashboard = frappe.db.get_single_value("HD Settings", "custom_manager_overview_dashboard")
+    if not dashboard or not frappe.db.exists("Insights Dashboard v3", dashboard):
+        return None
+    if not frappe.has_permission("Insights Dashboard v3", ptype="read", doc=dashboard, user=user):
+        return None
+    return "/insights/dashboards/" + quote(dashboard, safe="")

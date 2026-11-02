@@ -118,6 +118,7 @@ import { useDevice } from "@/composables";
 import { currentView, useView } from "@/composables/useView";
 import { useNotificationStore } from "@/stores/notification";
 import { useSidebarStore } from "@/stores/sidebar";
+import { useAuthStore } from "@/stores/auth";
 import { useTelephonyStore } from "@/stores/telephony";
 import { __ } from "@/translation";
 import { getIcon, isCustomerPortal } from "@/utils";
@@ -135,6 +136,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
 import type { RouteLocationRaw } from "vue-router";
 import { useRoute, useRouter } from "vue-router";
+import LucideChartNoAxesCombined from "~icons/lucide/chart-no-axes-combined";
 import LucideBell from "~icons/lucide/bell";
 import LucideSearch from "~icons/lucide/search";
 import {
@@ -152,6 +154,7 @@ const router = useRouter();
 const device = useDevice();
 const notificationStore = useNotificationStore();
 const sidebarStore = useSidebarStore();
+const authStore = useAuthStore();
 const { isCallingEnabled } = storeToRefs(useTelephonyStore());
 const { pinnedViews, publicViews, viewActions, handleView } = useView();
 
@@ -200,7 +203,15 @@ function selectItem(key: string, to: RouteLocationRaw, onSelect?: () => void) {
 const navItems = computed(() => {
   const options = isCustomerPortal.value
     ? customerPortalSidebarOptions
-    : agentPortalSidebarOptions;
+    : [...agentPortalSidebarOptions];
+  if (!isCustomerPortal.value && authStore.managerOverviewUrl) {
+    const dashboardIndex = options.findIndex((item) => item.to === "Dashboard");
+    options.splice(dashboardIndex + 1, 0, {
+      label: __("Manager Overview"),
+      icon: LucideChartNoAxesCombined,
+      to: "ManagerOverview",
+    });
+  }
   return options
     .filter((item) => isCallingEnabled.value || item.label !== __("Call Logs"))
     .map((option, index) => ({
