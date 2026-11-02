@@ -4,7 +4,11 @@ import { useStorage } from "@vueuse/core";
  * shift handover. Reads the session cookie, not the auth store — this runs at
  * module load, before pinia exists. */
 export function userStorage<T>(key: string, fallback: T) {
-  return useStorage<T>(`${key}:${sessionUserId()}`, fallback);
+  return useStorage<T>(userStorageKey(key), fallback);
+}
+
+export function userStorageKey(key: string): string {
+  return `${key}:${sessionUserId()}`;
 }
 
 function sessionUserId(): string {
