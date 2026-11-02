@@ -25,6 +25,11 @@ declare module "vue-router" {
 const portalRoutes = [
   // Agent Portal Routes
   {
+    path: "/manager-overview",
+    name: "ManagerOverview",
+    component: () => import("@/pages/dashboard/ManagerOverview.vue"),
+  },
+  {
     path: "",
     redirect: "/home",
   },

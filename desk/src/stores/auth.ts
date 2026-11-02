@@ -57,6 +57,9 @@ export const useAuthStore = defineStore("auth", () => {
   const userTeams: ComputedRef<string[]> = computed(
     () => user__.value.user_teams
   );
+  const managerOverviewUrl: ComputedRef<string | null> = computed(
+    () => user__.value.manager_overview_url || null
+  );
   const personaCaptured: ComputedRef<boolean> = computed(
     () => !!user__.value.persona_captured
   );
@@ -102,6 +105,7 @@ export const useAuthStore = defineStore("auth", () => {
     language,
     userTeams,
     personaCaptured,
+    managerOverviewUrl,
     user,
     logout,
   };
