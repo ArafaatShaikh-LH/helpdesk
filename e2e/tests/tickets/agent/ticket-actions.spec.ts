@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import type { Api } from "../../../helpers/api";
 import { expect, test, uid, usePersona } from "../../../helpers/fixtures";
 import { raiseTicket } from "../../../helpers/factories";
+import { TicketList } from "../../../helpers/list";
 import { addComment, openTicket, runTicketMethod } from "../../../helpers/ticket";
 
 usePersona("agent");
@@ -104,44 +105,72 @@ test("a later email splits off into a new ticket", async ({ page, api, apiAs }) 
   expect((await communications(api, ticket.name)).map((c) => c.name)).not.toContain(followUp.name);
 });
 
-test("next and previous ticket show that ticket's own timeline", async ({ api, apiAs, pageAs }) => {
+test("next and previous follow the filtered list and show each ticket's own timeline", async ({
+  apiAs,
+  pageAs,
+}) => {
   const page = await pageAs("agent2");
   const agent = await apiAs("agent");
   const customer = await apiAs("customer");
+  const prefix = `E2E navigation ${uid()}`;
   const notes = new Map<string, string>();
-  for (const ticket of [await raiseTicket(customer), await raiseTicket(customer)]) {
-    notes.set(ticket.name, `Timeline of ${ticket.name} ${uid()}`);
-    await addComment(agent, ticket.name, notes.get(ticket.name)!);
+  for (const suffix of ["one", "two"]) {
+    const ticket = await raiseTicket(customer, `${prefix} ${suffix}`);
+    notes.set(String(ticket.name), `Timeline of ${ticket.name} ${uid()}`);
+    await addComment(agent, ticket.name, notes.get(String(ticket.name))!);
   }
-  // the newest ticket heads the default view, so it has a next one
-  const start = [...notes.keys()].at(-1)!;
+  const list = new TicketList(page);
+  await list.goto();
+  await list.searchSubject(prefix);
+  await expect(list.rows()).toHaveCount(2);
+  const hrefs = await list
+    .rows()
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute("href")!));
+  const ids = hrefs.map(
+    (href) =>
+      new URL(href, "https://example.invalid").pathname.split("/").pop()!
+  );
+  await list.rows().first().click();
   const feed = page.getByRole("tabpanel", { name: "Activity" });
-  await openTicket(page, start);
-  await expect(feed.getByText(notes.get(start)!)).toBeVisible();
+  const navigation = page.getByRole("group", { name: "Ticket navigation" });
+  await expect(feed.getByText(notes.get(ids[0])!)).toBeVisible();
+  await expect(
+    navigation.getByRole("button", { name: "Previous" })
+  ).toBeDisabled();
+  await navigation.getByRole("button", { name: "Next", exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/tickets/${ids[1]}(?:\\?|$)`));
+  await expect(feed.getByText(notes.get(ids[1])!)).toBeVisible();
+  await expect(feed.getByText(notes.get(ids[0])!)).toHaveCount(0);
+  await expect(
+    navigation.getByRole("button", { name: "Next", exact: true })
+  ).toBeDisabled();
 
-  const runCommand = async (title: string) => {
-    // Desktop Chrome's user agent is Windows, where Mod is Control
-    await page.keyboard.press("Control+k");
-    await page.getByRole("combobox", { name: /Search commands/ }).fill(title);
-    await page.getByRole("option", { name: new RegExp(`^${title}`) }).click();
-  };
-  await runCommand("Next ticket");
-  await expect(page).not.toHaveURL(new RegExp(`/tickets/${start}$`));
-  const next = page.url().split("/").pop()!;
-  const nextComments = await api.list("Comment", {
-    fields: ["content"],
-    filters: { reference_name: next, comment_type: "Comment" },
-  });
-  for (const comment of nextComments) {
-    await expect(feed.getByText(comment.content.replace(/<[^>]+>/g, ""))).toBeVisible();
-  }
-  await expect(feed.getByText(notes.get(start)!)).toHaveCount(0);
+  await page.reload();
+  await expect(
+    navigation.getByRole("button", { name: "Next", exact: true })
+  ).toBeDisabled();
+  await page.keyboard.press("Control+k");
+  await page
+    .getByRole("combobox", { name: /Search commands/ })
+    .fill("Previous ticket");
+  await page.getByRole("option", { name: /^Previous ticket/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/tickets/${ids[0]}(?:\\?|$)`));
+  await expect(feed.getByText(notes.get(ids[0])!)).toBeVisible();
+  await expect(feed.getByText(notes.get(ids[1])!)).toHaveCount(0);
+});
 
-  await runCommand("Previous ticket");
-  await expect(page).toHaveURL(new RegExp(`/tickets/${start}$`));
-  await expect(feed.getByText(notes.get(start)!)).toBeVisible();
-  if (!notes.has(next)) return;
-  await expect(feed.getByText(notes.get(next)!)).toHaveCount(0);
+test("direct ticket links do not guess another queue for navigation", async ({
+  page,
+  ticket,
+}) => {
+  await openTicket(page, ticket.name);
+  const navigation = page.getByRole("group", { name: "Ticket navigation" });
+  await expect(
+    navigation.getByRole("button", { name: "Previous" })
+  ).toBeDisabled();
+  await expect(
+    navigation.getByRole("button", { name: "Next", exact: true })
+  ).toBeDisabled();
 });
 
 test("activity, emails, comments and analytics tabs render", async ({ page, apiAs, ticket }) => {

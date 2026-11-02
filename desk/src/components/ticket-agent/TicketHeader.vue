@@ -15,6 +15,7 @@
     </template>
     <template #right-header>
       <div class="flex gap-2 items-center">
+        <TicketNavigation />
         <MultipleAvatar
           :avatars="JSON.stringify(viewers)"
           size="md"
@@ -121,6 +122,7 @@ import { useRoute, useRouter } from "vue-router";
 import LucideMerge from "~icons/lucide/merge";
 import { IndicatorIcon } from "../icons";
 import TicketSubjectModal from "./TicketSubjectModal.vue";
+import TicketNavigation from "./TicketNavigation.vue";
 const { isAdmin } = useAuthStore();
 const { $dialog } = globalStore();
 

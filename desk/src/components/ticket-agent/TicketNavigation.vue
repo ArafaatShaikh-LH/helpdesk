@@ -1,87 +1,68 @@
 <template>
-  <!-- <div
-    v-if="ticketsToNavigate.data?.length > 1"
-    class="flex gap-1 rtl:flex-row-reverse"
+  <div
+    class="flex items-center gap-1"
+    role="group"
+    :aria-label="__('Ticket navigation')"
   >
-    <Tooltip
-      :text="
-        getPreviousTicket()
-          ? __(`Go to previous ticket (Shift + <)`)
-          : __('No previous ticket')
-      "
-      :disabled="disableLeftCondition"
-    >
+    <Tooltip :text="previousHint">
       <Button
-        variant="ghost"
-        :disabled="disableLeftCondition"
+        :label="__('Previous')"
+        :disabled="!previousTicket || navigatingTicket"
         @click="goToPreviousTicket()"
       >
-        <template #icon>
-          <LucideChevronLeft class="size-4" />
-        </template>
+        <template #prefix><LucideChevronLeft class="size-4" /></template>
       </Button>
     </Tooltip>
-    <Tooltip
-      :text="
-        getNextTicket()
-          ? __(`Go to next ticket (Shift + >)`)
-          : __('No next ticket')
-      "
-      :disabled="disableRightCondition"
+    <span
+      v-if="currentTicketIndex >= 0"
+      class="hidden lg:inline whitespace-nowrap px-1 text-p-xs text-ink-gray-5"
+      :title="__('Position in the loaded ticket list')"
     >
+      {{ currentTicketIndex + 1 }} / {{ ticketListContext.tickets.length }}
+    </span>
+    <Tooltip :text="nextHint">
       <Button
-        variant="ghost"
-        :disabled="disableRightCondition"
+        :label="__('Next')"
+        :disabled="!nextTicket || navigatingTicket"
         @click="goToNextTicket()"
       >
-        <template #icon>
-          <LucideChevronRight class="size-4" />
-        </template>
+        <template #suffix><LucideChevronRight class="size-4" /></template>
       </Button>
     </Tooltip>
-  </div> -->
+  </div>
 </template>
 
 <script setup lang="ts">
-import { useShortcut } from "@/composables/shortcuts";
 import {
-  ticketsToNavigate,
-  useTicketNavigation,
-} from "@/composables/useTicketNavigation";
-import { computed, onMounted } from "vue";
-
-const {
   currentTicketIndex,
-  goToNextTicket,
-  goToPreviousTicket,
   getNextTicket,
   getPreviousTicket,
-} = useTicketNavigation();
+  goToNextTicket,
+  goToPreviousTicket,
+  navigatingTicket,
+  ticketListContext,
+} from "@/composables/useTicketNavigation";
+import { __ } from "@/translation";
+import { Button, Tooltip } from "frappe-ui";
+import { computed } from "vue";
+import LucideChevronLeft from "~icons/lucide/chevron-left";
+import LucideChevronRight from "~icons/lucide/chevron-right";
 
-const disableLeftCondition = computed(() => {
-  if (ticketsToNavigate.loading || !ticketsToNavigate.data?.length) return true;
-
-  return currentTicketIndex.value == 0;
+const previousTicket = computed(getPreviousTicket);
+const nextTicket = computed(getNextTicket);
+const openListHint = () =>
+  __("Open a ticket from the ticket list to use Previous and Next.");
+const previousHint = computed(() => {
+  if (currentTicketIndex.value < 0) return openListHint();
+  return previousTicket.value
+    ? __("Previous ticket in this list (Shift + <)")
+    : __("First ticket in this list");
 });
-
-const disableRightCondition = computed(() => {
-  if (ticketsToNavigate.loading || !ticketsToNavigate.data?.length) return true;
-  if (ticketsToNavigate.data.length <= 1) return true;
-  return currentTicketIndex.value >= ticketsToNavigate.data.length - 1;
-});
-
-onMounted(() => {
-  // Register shortcuts and store cleanup functions
-  useShortcut({ key: ">", shift: true }, () => {
-    if (!disableRightCondition.value) {
-      goToNextTicket();
-    }
-  });
-
-  useShortcut({ key: "<", shift: true }, () => {
-    if (!disableLeftCondition.value) {
-      goToPreviousTicket();
-    }
-  });
+const nextHint = computed(() => {
+  if (currentTicketIndex.value < 0) return openListHint();
+  if (nextTicket.value) return __("Next ticket in this list (Shift + >)");
+  return ticketListContext.value.total > ticketListContext.value.tickets.length
+    ? __("End of loaded tickets. Return to the list and load more to continue.")
+    : __("Last ticket in this list");
 });
 </script>

@@ -61,10 +61,7 @@ import {
   revalidateTicket,
   useTicket,
 } from "@/composables/useTicket";
-import {
-  ticketsToNavigate,
-  useTicketNavigation,
-} from "@/composables/useTicketNavigation";
+import { useTicketNavigation } from "@/composables/useTicketNavigation";
 import { globalStore } from "@/stores/globalStore";
 import { useTelephonyStore } from "@/stores/telephony";
 import {
@@ -207,14 +204,6 @@ onMounted(() => {
   // Revisiting a ticket: show the cached conversation immediately and refresh it
   // in place, since a reply may have arrived while the socket listener was off.
   revalidateTicket(props.ticketId);
-
-  ticketsToNavigate.update({
-    params: {
-      ticket: props.ticketId,
-      current_view: route.query.view as string,
-    },
-  });
-  ticketsToNavigate.reload();
 
   $socket.on("ticket_update", (data: TicketUpdateData) => {
     if (data.ticket_id === ticket.value?.name) {
