@@ -1,76 +1,97 @@
 import { useShortcut } from "@/composables/shortcuts";
 import { router } from "@/router";
-import { createResource } from "frappe-ui";
-import { ref } from "vue";
+import { useSessionStorage } from "@vueuse/core";
+import { computed, ref } from "vue";
 
-export const currentTicketIndex = ref(0);
+interface TicketListContext {
+  tickets: string[];
+  view: string;
+  total: number;
+}
 
-export const ticketsToNavigate = createResource({
-  url: "helpdesk.helpdesk.doctype.hd_ticket.api.get_navigation_tickets",
-  cache: ["ticketsToNavigate"],
+const cookies = new URLSearchParams(document.cookie.split("; ").join("&"));
+// Keep only IDs, scoped to this agent and tab; never cache ticket content here.
+export const ticketListContext = useSessionStorage<TicketListContext>(
+  `hd_ticket_navigation:${cookies.get("user_id") || "guest"}`,
+  { tickets: [], view: "", total: 0 },
+  { flush: "sync" }
+);
+export const navigatingTicket = ref(false);
+
+export function rememberTicketList(
+  rows: { name: string | number; rows?: { name: string | number }[] }[],
+  view: string,
+  total: number
+) {
+  const tickets = rows
+    .flatMap((row) => row.rows || [row])
+    .map((row) => String(row.name));
+  ticketListContext.value = {
+    tickets: [...new Set(tickets)],
+    view: view || "",
+    total,
+  };
+}
+
+export const currentTicketIndex = computed(() => {
+  const route = router.currentRoute.value;
+  if (route.name !== "TicketAgent") return -1;
+  if ((route.query.view || "") !== ticketListContext.value.view) return -1;
+  return ticketListContext.value.tickets.indexOf(String(route.params.ticketId));
 });
 
-// Module scope, not inside the composable: the command palette needs these too,
-// and calling the composable a second time would register duplicate shortcuts.
-
-export function goToNextTicket() {
-  const nextTicketId = getNextTicket();
-  if (!nextTicketId) return null;
-  currentTicketIndex.value += 1;
-  navigateToTicket(nextTicketId);
-  return nextTicketId;
-}
-
-export function goToPreviousTicket() {
-  const prevTicketId = getPreviousTicket();
-  if (!prevTicketId) return null;
-  currentTicketIndex.value -= 1;
-  navigateToTicket(prevTicketId);
-  return prevTicketId;
-}
-
 export function getCurrentTicket() {
-  return ticketsToNavigate.data[currentTicketIndex.value];
+  return ticketListContext.value.tickets[currentTicketIndex.value] || null;
 }
 
 export function getNextTicket() {
-  if (!ticketsToNavigate.data) return null;
-  if (currentTicketIndex.value < ticketsToNavigate.data.length - 1) {
-    return ticketsToNavigate.data[currentTicketIndex.value + 1];
-  }
-  return null;
+  if (currentTicketIndex.value < 0) return null;
+  return ticketListContext.value.tickets[currentTicketIndex.value + 1] || null;
 }
 
 export function getPreviousTicket() {
-  if (!ticketsToNavigate.data) return null;
-  if (currentTicketIndex.value > 0) {
-    return ticketsToNavigate.data[currentTicketIndex.value - 1];
-  }
-  return null;
+  if (currentTicketIndex.value <= 0) return null;
+  return ticketListContext.value.tickets[currentTicketIndex.value - 1] || null;
+}
+
+export function goToNextTicket() {
+  return moveToTicket(getNextTicket());
+}
+
+export function goToPreviousTicket() {
+  return moveToTicket(getPreviousTicket());
+}
+
+function moveToTicket(ticketId: string | null) {
+  if (!ticketId || navigatingTicket.value) return null;
+  navigateToTicket(ticketId);
+  return ticketId;
 }
 
 export function navigateToTicket(ticketId: string) {
-  const view = router.currentRoute.value.query.view as string;
-  const routeToNavigate: any = {
-    name: "TicketAgent",
-    params: { ticketId },
-    hash: "",
-  };
-  if (view) {
-    routeToNavigate["query"] = { view };
-  }
-  router.push(routeToNavigate);
+  const view = router.currentRoute.value.query.view;
+  navigatingTicket.value = true;
+  return router
+    .push({
+      name: "TicketAgent",
+      params: { ticketId },
+      query: view ? { view } : {},
+      hash: "",
+    })
+    .finally(() => {
+      navigatingTicket.value = false;
+    });
 }
 
-/** True once the view has more than one ticket to move between. */
 export function canNavigateTickets() {
-  return !ticketsToNavigate.loading && ticketsToNavigate.data?.length > 1;
+  return (
+    !navigatingTicket.value &&
+    currentTicketIndex.value >= 0 &&
+    ticketListContext.value.tickets.length > 1
+  );
 }
 
-/**
- * Shift + < / > to move through the current view's tickets. Listeners are
- * registered per caller, so call this once per page (the ticket page).
- */
+// Register once on the ticket page; header buttons reuse the same functions.
 export function useTicketNavigation() {
   useShortcut(
     { key: ">", shift: true },

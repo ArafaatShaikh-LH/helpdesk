@@ -1,6 +1,16 @@
 <template>
   <Layout class="isolate">
-    <router-view class="flex flex-1 flex-col overflow-auto" />
+    <router-view v-slot="{ Component, route }">
+      <component
+        :is="Component"
+        :key="
+          route.name === 'TicketAgent'
+            ? String(route.params.ticketId)
+            : undefined
+        "
+        class="flex flex-1 flex-col overflow-auto"
+      />
+    </router-view>
   </Layout>
 </template>
 

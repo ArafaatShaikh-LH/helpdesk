@@ -152,6 +152,7 @@ import {
 } from "@/components/view-controls";
 import { Filter, normalizeFilters } from "@/components/view-controls/filter";
 import { useScreenSize } from "@/composables/screen";
+import { rememberTicketList } from "@/composables/useTicketNavigation";
 import {
   currentView as headerView,
   useView,
@@ -460,6 +461,16 @@ const rows = computed(() => {
   return list.data?.data;
 });
 const columns = ref([]);
+
+watch(rows, (visibleRows) => {
+  if (options.value.doctype !== "HD Ticket" || options.value.isCustomerPortal)
+    return;
+  rememberTicketList(
+    visibleRows,
+    (route.query.view as string) || "",
+    list.data?.total_count || visibleRows.length
+  );
+});
 
 function getGroupedByRows(listRows, groupByField) {
   let groupedRows = [];
