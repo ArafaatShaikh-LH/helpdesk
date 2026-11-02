@@ -9,6 +9,11 @@ interface TicketListContext {
   total: number;
 }
 
+interface TicketListSummary {
+  subject: string;
+  status: string;
+}
+
 const cookies = new URLSearchParams(document.cookie.split("; ").join("&"));
 // Keep only IDs, scoped to this agent and tab; never cache ticket content here.
 export const ticketListContext = useSessionStorage<TicketListContext>(
@@ -17,15 +22,28 @@ export const ticketListContext = useSessionStorage<TicketListContext>(
   { flush: "sync" }
 );
 export const navigatingTicket = ref(false);
+// Display data lives only in memory. sessionStorage still contains IDs only.
+export const ticketListSummaries = ref<Record<string, TicketListSummary>>({});
+export const showTicketListPane = ref(true);
 
 export function rememberTicketList(
-  rows: { name: string | number; rows?: { name: string | number }[] }[],
+  rows: {
+    name: string | number;
+    subject?: string;
+    status?: string;
+    rows?: { name: string | number; subject?: string; status?: string }[];
+  }[],
   view: string,
   total: number
 ) {
-  const tickets = rows
-    .flatMap((row) => row.rows || [row])
-    .map((row) => String(row.name));
+  const flatRows = rows.flatMap((row) => row.rows || [row]);
+  const tickets = flatRows.map((row) => String(row.name));
+  ticketListSummaries.value = Object.fromEntries(
+    flatRows.map((row) => [
+      String(row.name),
+      { subject: row.subject || "", status: row.status || "" },
+    ])
+  );
   ticketListContext.value = {
     tickets: [...new Set(tickets)],
     view: view || "",

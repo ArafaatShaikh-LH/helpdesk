@@ -15,6 +15,15 @@
     </template>
     <template #right-header>
       <div class="flex gap-2 items-center">
+        <Button
+          v-if="currentTicketIndex >= 0"
+          class="hidden xl:inline-flex"
+          :label="showTicketListPane ? __('Hide list') : __('Show list')"
+          :aria-expanded="showTicketListPane"
+          @click="showTicketListPane = !showTicketListPane"
+        >
+          <template #prefix><LucidePanelLeft class="size-4" /></template>
+        </Button>
         <TicketNavigation />
         <MultipleAvatar
           :avatars="JSON.stringify(viewers)"
@@ -123,6 +132,11 @@ import LucideMerge from "~icons/lucide/merge";
 import { IndicatorIcon } from "../icons";
 import TicketSubjectModal from "./TicketSubjectModal.vue";
 import TicketNavigation from "./TicketNavigation.vue";
+import LucidePanelLeft from "~icons/lucide/panel-left";
+import {
+  currentTicketIndex,
+  showTicketListPane,
+} from "@/composables/useTicketNavigation";
 const { isAdmin } = useAuthStore();
 const { $dialog } = globalStore();
 

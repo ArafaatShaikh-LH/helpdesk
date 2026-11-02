@@ -1,8 +1,13 @@
 <template>
-  <div v-if="ticket.doc?.name && feedReady" :key="ticketId" class="flex-1">
+  <div
+    v-if="ticket.doc?.name && feedReady"
+    :key="ticketId"
+    class="flex min-h-0 flex-1 flex-col overflow-hidden"
+  >
     <TicketHeader :viewers="viewers" />
-    <div class="h-full flex overflow-hidden">
-      <div class="flex-1 flex flex-col overflow-hidden">
+    <div class="flex min-h-0 flex-1 overflow-hidden">
+      <TicketListPane />
+      <div class="min-w-0 flex-1 flex flex-col overflow-hidden">
         <!-- Tabs & Communication Area -->
         <TicketActivityPanel />
       </div>
@@ -54,6 +59,7 @@ import { SHARED_VISIBLE_TYPES } from "@/components/ticket-agent/timeline/TicketT
 import { useActivityTimeline } from "@framework/ui/ActivityTimeline";
 import TicketHeader from "@/components/ticket-agent/TicketHeader.vue";
 import TicketSidebar from "@/components/ticket-agent/TicketSidebar.vue";
+import TicketListPane from "@/components/ticket-agent/TicketListPane.vue";
 import SetContactPhoneModal from "@/components/ticket/SetContactPhoneModal.vue";
 import { useActiveViewers } from "@/composables/realtime";
 import {
