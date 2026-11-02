@@ -279,6 +279,7 @@ def add_property_setters():
 def get_custom_fields():
     """Helpdesk specific custom fields added to framework DocTypes."""
     return {
+        **get_forward_custom_fields(),
         "Tag": [
             {
                 "fieldname": "app",
@@ -494,3 +495,21 @@ def add_index_if_not_exists(table, column, index_name):
             table=table, index_name=index_name, column=column
         )
     )
+
+
+def get_forward_custom_fields():
+    """Keep a persistent source link so forwards never count as customer replies."""
+    return {
+        "Communication": [
+            {
+                "fieldname": "custom_hd_forward_source",
+                "label": "Helpdesk forward source",
+                "fieldtype": "Link",
+                "options": "Communication",
+                "insert_after": "in_reply_to",
+                "read_only": 1,
+                "hidden": 1,
+                "no_copy": 1,
+            }
+        ]
+    }

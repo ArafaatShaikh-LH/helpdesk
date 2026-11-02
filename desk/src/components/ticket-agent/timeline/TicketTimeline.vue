@@ -84,6 +84,14 @@
       </ActivityTimeline>
     </TimelineContainer>
   </div>
+  <ForwardEmailDialog
+    v-if="forwardCommunication"
+    :key="forwardCommunication"
+    :ticket-id="ticketId"
+    :communication="forwardCommunication"
+    @close="forwardCommunication = ''"
+    @sent="refreshAndScroll"
+  />
   <TicketSplitModal
     :modelValue="Boolean(splitCommunication)"
     @update:modelValue="splitCommunication = ''"
@@ -132,6 +140,8 @@ import {
   ReplyAllIcon,
   ReplyIcon,
 } from "@/components/icons";
+import ForwardEmailDialog from "@/components/ticket-agent/ForwardEmailDialog.vue";
+import LucideForward from "~icons/lucide/forward";
 import TicketSplitModal from "@/components/ticket/TicketSplitModal.vue";
 import {
   registerTicketFeed,
@@ -188,6 +198,7 @@ const { $socket } = globalStore();
 const ticket = inject(TicketSymbol)!;
 
 const splitCommunication = ref("");
+const forwardCommunication = ref("");
 const timelineRef =
   useTemplateRef<InstanceType<typeof ActivityTimeline>>("timelineRef");
 const timelineContainer =
@@ -251,6 +262,15 @@ const emptyIcon = computed(
 
 function emailOptions(activity: EmailActivity) {
   return [
+    ...(!activity.pending
+      ? [
+          {
+            label: __("Forward"),
+            icon: LucideForward,
+            onClick: () => (forwardCommunication.value = activity.data.name),
+          },
+        ]
+      : []),
     {
       label: __("Copy link"),
       icon: "lucide-link",

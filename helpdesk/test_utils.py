@@ -910,3 +910,14 @@ def make_ticket_mail(ticket, account, direction="Received"):
     ).insert(ignore_permissions=True)
     communication.db_set("email_account", account)
     return communication
+
+
+def make_communication_attachment(
+    communication, filename="forward-test.txt", content=b"Test attachment"
+):
+    """Create a private file linked only to the selected synthetic email."""
+    from frappe.utils.file_manager import save_file
+
+    return save_file(
+        filename, content, "Communication", communication.name, is_private=1
+    )
