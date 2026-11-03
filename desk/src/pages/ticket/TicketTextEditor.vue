@@ -36,10 +36,9 @@
     <template #bottom-left>
       <span class="flex items-center">
         <slot name="bottom-left" />
-        <FileUploader
+        <AttachmentUploader
           class="flex items-center"
           folder="Home/Helpdesk"
-          private
           @success="
             (f: File) => $emit('update:attachments', [...attachments, f])
           "
@@ -55,7 +54,7 @@
               class="mr-2"
             />
           </template>
-        </FileUploader>
+        </AttachmentUploader>
       </span>
     </template>
     <template #top-right>
@@ -84,6 +83,7 @@
   </div>
 </template>
 <script setup lang="ts">
+import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import {
   AttachmentItem,
   TextEditor as HTextEditor,
@@ -92,7 +92,7 @@ import {
 import { useAuthStore } from "@/stores/auth";
 import { File } from "@/types";
 import { removeAttachmentFromServer } from "@/utils";
-import { FileUploader, toast } from "frappe-ui";
+import { toast } from "frappe-ui";
 import { computed, ref } from "vue";
 
 interface P {

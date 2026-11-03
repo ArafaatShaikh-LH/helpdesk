@@ -33,10 +33,17 @@
           <div class="flex justify-between gap-2 overflow-hidden py-2.5">
             <div class="flex min-w-0 flex-1 items-center overflow-x-auto">
               <div class="inline-flex items-center gap-1.5 p-1">
-                <FileUploader
+                <AttachmentUploader
                   :doctype="doctype"
                   :docname="ticketId"
-                  private
+                  @failure="
+                    () =>
+                      toast.error(
+                        __(
+                          'An attachment could not be uploaded. Other selected files will continue.'
+                        )
+                      )
+                  "
                   @success="(f) => attachments.push(f)"
                 >
                   <template #default="{ openFileSelector, uploading }">
@@ -54,7 +61,7 @@
                       />
                     </button>
                   </template>
-                </FileUploader>
+                </AttachmentUploader>
                 <div class="h-4 w-[2px] border-s ms-1" />
               </div>
               <EditorFixedMenu :items="fullToolbar" />
@@ -95,8 +102,8 @@
   </Editor>
 </template>
 <script setup lang="ts">
+import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import {
-  FileUploader,
   LoadingIndicator,
   Tooltip,
   createResource,
