@@ -73,6 +73,7 @@ class HDTicket(Document):
 
     def before_validate(self):
         self.check_update_perms()
+        self.route_classification_team()
         self.set_ticket_type()
         self.set_raised_by()
         self.set_priority()
@@ -95,6 +96,7 @@ class HDTicket(Document):
         old = self.get_doc_before_save()
         if (
             not old
+            or self.flags.get("classification_review")
             or "System Manager" in frappe.get_roles()
             or frappe.session.user == "Administrator"
         ):
@@ -111,6 +113,28 @@ class HDTicket(Document):
                 _("Only a system administrator can change ticket classification."),
                 frappe.PermissionError,
             )
+
+    def route_classification_team(self):
+        """Choose the queue after AI sets or changes Main category."""
+        teams = {
+            "Contracts": "Contracts",
+            "Contract Queries": "Contract Queries",
+            "Human Review": "Human Review",
+            "Allocation": "Allocation",
+            "Special Offers": "Special Offers",
+            "Stop Sales": "Stop Sales",
+        }
+        category = self.get("custom_main_category")
+        if category not in teams:
+            return
+        old = self.get_doc_before_save()
+        if old and old.get("custom_main_category") == category:
+            return
+        team = teams[category]
+        if not frappe.db.exists("HD Team", team):
+            # Do not block incoming email when a queue has not been configured.
+            return
+        self.agent_group = team
 
     def before_save(self):
         self.set_resolution_date()
