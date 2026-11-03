@@ -16,7 +16,17 @@
             v-if="showAttachments"
             class="inline-flex items-center gap-1.5 pe-1"
           >
-            <FileUploader private @success="addAttachment">
+            <AttachmentUploader
+              @success="addAttachment"
+              @failure="
+                () =>
+                  toast.error(
+                    __(
+                      'An attachment could not be uploaded. Other selected files will continue.'
+                    )
+                  )
+              "
+            >
               <template #default="{ openFileSelector, uploading }">
                 {{ syncUploadingState(uploading) }}
                 <button
@@ -32,7 +42,7 @@
                   />
                 </button>
               </template>
-            </FileUploader>
+            </AttachmentUploader>
             <div class="h-4 w-[2px] border-s ms-1" />
           </div>
           <EditorFixedMenu :items="fullToolbar" />
@@ -51,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import AttachmentUploader from "@/components/AttachmentUploader.vue";
 import { AttachmentList } from "@/components";
 import {
   buildEditorExtensions,
@@ -60,7 +71,8 @@ import {
 import { AttachmentIcon } from "@/components/icons";
 import { getUserEmailInfo } from "@/composables/useUserEmailInfo";
 import { isContentEmpty } from "@/utils";
-import { FileUploader, LoadingIndicator, type UploadedFile } from "frappe-ui";
+import { LoadingIndicator, toast, type UploadedFile } from "frappe-ui";
+import { __ } from "@/translation";
 import {
   Editor,
   EditorBubbleMenu,
@@ -141,7 +153,7 @@ function removeAttachment(attachment: UploadedFile) {
   attachments.value = (attachments.value ?? []).filter((a) => a !== attachment);
 }
 
-// FileUploader exposes `uploading` only via slot scope, so mirror it into a
+// AttachmentUploader exposes `uploading` only via slot scope, so mirror it into a
 // ref that the parent can read through the exposed `isUploading`.
 function syncUploadingState(uploading: boolean): string {
   isUploading.value = uploading;
