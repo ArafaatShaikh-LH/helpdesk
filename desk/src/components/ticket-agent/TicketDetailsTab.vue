@@ -154,6 +154,8 @@ import { parseField } from "@/composables/formCustomisation";
 import { useNotifyTicketUpdate } from "@/composables/realtime";
 import { useShortcut } from "@/composables/shortcuts";
 import { getMeta } from "@/stores/meta";
+import { useAuthStore } from "@/stores/auth";
+import { protectedClassificationFields } from "@/utils/approvedClassification";
 import { useTicketStatusStore } from "@/stores/ticketStatus";
 import { __ } from "@/translation.ts";
 import {
@@ -180,6 +182,7 @@ const assignees = inject(AssigneeSymbol)!;
 const customizations = inject(CustomizationSymbol)!;
 const recentSimilarTickets = inject(RecentSimilarTicketsSymbol)!;
 const { getFields, getField } = getMeta("HD Ticket");
+const auth = useAuthStore();
 const { notifyTicketUpdate } = useNotifyTicketUpdate(ticket.value?.name);
 
 const dateFormat = window.date_format;
@@ -313,6 +316,8 @@ function openTicket(name: string) {
 }
 
 function getFieldInFormat(fieldTemplate, fieldMeta) {
+  const readonly = Boolean(fieldMeta.read_only) ||
+    (protectedClassificationFields.has(fieldTemplate.fieldname) && !auth.isAdmin);
   return {
     label: fieldMeta?.label || fieldTemplate.fieldname,
     value: ticket.value.doc[fieldTemplate.fieldname],
@@ -322,8 +327,8 @@ function getFieldInFormat(fieldTemplate, fieldMeta) {
     placeholder:
       fieldTemplate.placeholder ||
       `Set ${fieldMeta?.label || fieldTemplate.fieldname}...`,
-    readonly: Boolean(fieldMeta.read_only),
-    disabled: Boolean(fieldMeta.read_only),
+    readonly,
+    disabled: readonly,
     url_method: fieldTemplate.url_method || "",
     fieldname: fieldTemplate.fieldname,
     required: fieldTemplate.required || fieldMeta?.required || false,

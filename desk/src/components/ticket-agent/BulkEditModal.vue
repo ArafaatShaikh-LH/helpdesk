@@ -35,6 +35,8 @@
 <script setup lang="ts">
 import { globalStore } from "@/stores/globalStore";
 import { getMeta } from "@/stores/meta";
+import { useAuthStore } from "@/stores/auth";
+import { protectedClassificationFields } from "@/utils/approvedClassification";
 import { __ } from "@/translation";
 import { getFieldComponent } from "@framework/ui/fields";
 import { Button, call, Combobox, Dialog, toast } from "frappe-ui";
@@ -72,6 +74,7 @@ const emit = defineEmits<{
 
 const { $socket } = globalStore();
 const { getFields } = getMeta("HD Ticket");
+const auth = useAuthStore();
 
 const fieldname = ref<string | null>(null);
 const value = ref<any>(null);
@@ -90,6 +93,7 @@ const editableFields = computed(() =>
       !NO_VALUE_TYPES.has(field.fieldtype) &&
       !field.hidden &&
       !field.read_only &&
+      (auth.isAdmin || !protectedClassificationFields.has(field.fieldname)) &&
       !field.is_virtual
   )
 );
