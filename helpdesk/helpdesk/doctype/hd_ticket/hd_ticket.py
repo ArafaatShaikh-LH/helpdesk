@@ -88,6 +88,29 @@ class HDTicket(Document):
 
     def validate(self):
         self.validate_feedback()
+        self.validate_classification_edit()
+
+    def validate_classification_edit(self):
+        """Agents may view AI classifications, but cannot change them later."""
+        old = self.get_doc_before_save()
+        if (
+            not old
+            or "System Manager" in frappe.get_roles()
+            or frappe.session.user == "Administrator"
+        ):
+            return
+        protected = (
+            "custom_main_category",
+            "custom_classification_category",
+            "custom_classification_2_category",
+            "custom_historic_classification",
+            "custom_historic_classification_2",
+        )
+        if any(self.get(field) != old.get(field) for field in protected):
+            frappe.throw(
+                _("Only a system administrator can change ticket classification."),
+                frappe.PermissionError,
+            )
 
     def before_save(self):
         self.set_resolution_date()
