@@ -21,11 +21,14 @@ ASSIGNMENT_DAYS = [
 
 class HDTeam(Document):
     def after_insert(self):
-        self.create_assignment_rule()
+        if self.users:
+            self.create_assignment_rule()
         self.capture_team_creation_event()
 
     def on_update(self):
         if not self.assignment_rule:
+            if self.users:
+                self.create_assignment_rule()
             return
         ar = frappe.get_doc("Assignment Rule", self.assignment_rule)
         self.sync_users(ar)

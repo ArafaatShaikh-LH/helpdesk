@@ -1,0 +1,9 @@
+# Ticket routing and Human Review
+
+When AI creates a ticket with an approved Main Category, or changes that category through a normal ticket save, Helpdesk sets the matching Team. Contracts, Contract Queries, Allocation, Special Offers, and Stop Sales map to teams with the same names. Human Review maps to the new Human Review team. A later save that does not change Main Category does not reassign the team, preserving a manager's manual override. If a matching team is absent, the ticket save continues without changing Team so incoming email is not blocked.
+
+The Human Review team starts with no members. Tickets can queue there, but its assignment rule is created only after an administrator adds members. No person is selected by the migration.
+
+On a Human Review ticket, an agent chooses a final Main Category and, for Contracts or Contract Queries, its nested Classification and Classification 2. The optional note can be blank. The Apply action checks ticket write access and approved values, records the original AI values, selected values, reviewer identity and time in an HD Classification Review record, then updates the three active ticket fields and Team in one transaction. Existing Version history also records the ticket change. Reporting should use the active ticket fields; pending decisions remain under Human Review. The new audit doctype is readable by System Managers; ordinary agents cannot enumerate other tickets' review records through its API.
+
+This change does not alter existing ticket categories or teams in bulk. It affects new AI tickets, later category changes, and explicit review actions. Before deployment, confirm the five existing team names and that the AI saves tickets through Frappe document hooks; direct database writes bypass routing. After deployment, create one synthetic ticket per category, apply a Human Review correction, check the team assignment and audit record, and then add Human Review members when chosen.

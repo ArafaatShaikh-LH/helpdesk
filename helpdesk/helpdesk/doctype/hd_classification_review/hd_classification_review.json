@@ -1,0 +1,27 @@
+{
+ "actions": [],
+ "autoname": "hash",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["ticket", "reviewed_by", "reviewed_at", "original_main_category", "original_classification", "original_classification_2", "reviewed_main_category", "reviewed_classification", "reviewed_classification_2", "note"],
+ "fields": [
+  {"fieldname": "ticket", "fieldtype": "Link", "label": "Ticket", "options": "HD Ticket", "reqd": 1, "search_index": 1},
+  {"fieldname": "reviewed_by", "fieldtype": "Link", "label": "Reviewed By", "options": "User", "reqd": 1},
+  {"fieldname": "reviewed_at", "fieldtype": "Datetime", "label": "Reviewed At", "reqd": 1},
+  {"fieldname": "original_main_category", "fieldtype": "Data", "label": "Original Main Category"},
+  {"fieldname": "original_classification", "fieldtype": "Data", "label": "Original Classification"},
+  {"fieldname": "original_classification_2", "fieldtype": "Data", "label": "Original Classification 2"},
+  {"fieldname": "reviewed_main_category", "fieldtype": "Data", "label": "Reviewed Main Category", "reqd": 1},
+  {"fieldname": "reviewed_classification", "fieldtype": "Data", "label": "Reviewed Classification"},
+  {"fieldname": "reviewed_classification_2", "fieldtype": "Data", "label": "Reviewed Classification 2"},
+  {"fieldname": "note", "fieldtype": "Small Text", "label": "Optional Note"}
+ ],
+ "module": "Helpdesk",
+ "name": "HD Classification Review",
+ "naming_rule": "Random",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "report": 1, "export": 1}
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}
