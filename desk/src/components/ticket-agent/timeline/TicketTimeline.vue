@@ -151,7 +151,7 @@ import {
 import { globalStore } from "@/stores/globalStore";
 import { __ } from "@/translation";
 import { TicketSymbol } from "@/types";
-import { copyActivityLink, toast } from "@/utils";
+import { copyActivityLink } from "@/utils";
 import {
   ActivityTimeline,
   EmailItem,
@@ -164,7 +164,7 @@ import {
   type EmailActivity,
   type LogActivity,
 } from "@framework/ui/ActivityTimeline";
-import { Button, Dropdown, call } from "frappe-ui";
+import { Button, Dropdown, call, toast } from "frappe-ui";
 import {
   computed,
   inject,
