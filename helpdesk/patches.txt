@@ -65,3 +65,5 @@ helpdesk.patches.sync_customer_manager_roles
 helpdesk.patches.add_forward_source
 helpdesk.patches.approved_ticket_classification
 helpdesk.patches.create_human_review_team
+
+helpdesk.patches.enable_direct_classification
