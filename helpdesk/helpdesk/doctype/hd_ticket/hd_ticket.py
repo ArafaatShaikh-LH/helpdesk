@@ -648,7 +648,37 @@ class HDTicket(Document):
             "enabled": enabled,
             "sender": sender,
             "available_senders": available_senders,
+            "reply_recipients": self.get_reply_recipients(),
         }
+
+    @frappe.whitelist()
+    def get_reply_recipients(self, communication=None, reply_all=True):
+        """Return safe defaults for a selected message or the latest email."""
+        from helpdesk.helpdesk.utils.reply_recipients import reply_recipients
+
+        if not is_agent():
+            frappe.throw(_("You are not permitted to reply as an agent"), frappe.PermissionError)
+        self.check_permission("read")
+        filters = {
+            "reference_doctype": "HD Ticket",
+            "reference_name": str(self.name),
+            "communication_medium": "Email",
+        }
+        if communication:
+            filters["name"] = communication
+        rows = frappe.get_all(
+            "Communication", filters=filters,
+            fields=["sender", "recipients", "cc", "sent_or_received"],
+            order_by="communication_date desc, creation desc, name desc",
+            limit_page_length=1,
+        )
+        if communication and not rows:
+            frappe.throw(_("The selected email does not belong to this ticket."), frappe.PermissionError)
+        # Include disabled accounts too: historic shared mailboxes are not
+        # customers and must not be automatically addressed by a follow-up.
+        mailboxes = frappe.get_all("Email Account", pluck="email_id")
+        email = rows[0] if rows else {"sender": self.raised_by}
+        return reply_recipients(email, mailboxes, frappe.session.user, bool(cint(reply_all)))
 
     def _receiving_mailbox(self):
         # The ticket permission is checked by the public caller; never use a sent reply.
@@ -916,6 +946,14 @@ class HDTicket(Document):
 
         if recipients == "Administrator":
             recipients = frappe.get_value("User", "Administrator", "email")
+
+        if sender_email:
+            from helpdesk.helpdesk.utils.reply_recipients import addresses
+
+            sending_address = parseaddr(sender_email.email_id)[1].casefold()
+            reply_addresses = addresses([recipients or "", cc or "", bcc or ""])
+            if any(address.casefold() == sending_address for address in reply_addresses):
+                frappe.throw(_("The sending mailbox cannot also be a reply recipient. Remove it from To, Cc and Bcc to avoid an email loop."))
 
         communication = frappe.get_doc(
             {

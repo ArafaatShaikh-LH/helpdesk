@@ -88,7 +88,11 @@ class TestReplySender(FrappeTestCase):
                     )
 
     def test_no_reply_is_not_a_sender_option(self):
-        with self.set_user(self.agent), patch("frappe.get_all", return_value=[]) as get_all:
+        with (
+            self.set_user(self.agent),
+            patch("frappe.get_all", return_value=[]) as get_all,
+            patch.object(self.ticket, "get_reply_recipients", return_value={"to": [], "cc": [], "bcc": []}),
+        ):
             self.ticket.get_reply_sender()
         self.assertEqual(
             get_all.call_args.kwargs["filters"],
@@ -120,3 +124,44 @@ class TestReplySender(FrappeTestCase):
                 ) as legacy:
                     self.ticket._resolve_sender_email(None, None)
                     legacy.assert_called_once_with(None, None)
+
+    def test_selected_reply_cannot_read_another_tickets_email(self):
+        other_ticket = make_ticket()
+        mail = make_ticket_mail(other_ticket, self.account)
+        with self.set_user(self.agent), self.assertRaises(frappe.PermissionError):
+            self.ticket.get_reply_recipients(communication=mail.name)
+
+    def test_reply_recipients_require_ticket_access(self):
+        with (
+            self.set_user(self.agent),
+            patch.object(self.ticket, "check_permission", side_effect=frappe.PermissionError),
+            self.assertRaises(frappe.PermissionError),
+        ):
+            self.ticket.get_reply_recipients()
+
+    def test_guest_cannot_read_reply_recipients(self):
+        with self.set_user("Guest"), self.assertRaises(frappe.PermissionError):
+            self.ticket.get_reply_recipients()
+
+    def test_reply_to_sending_mailbox_is_rejected_before_communication_insert(self):
+        with self.set_user(self.agent), patch.object(self.ticket, "_resolve_sender_email") as resolve:
+            resolve.return_value = (frappe._dict(email_id=self.address), self.account)
+            for field in ("to", "cc", "bcc"):
+                with self.subTest(field=field), self.assertRaises(frappe.ValidationError):
+                    self.ticket.reply_via_agent(
+                        message="Synthetic self-reply check", **{field: f'"Shared mailbox" <{self.address.upper()}>'}
+                    )
+
+    def test_sent_followup_preserves_message_recipients_not_original_requester(self):
+        mail = make_ticket_mail(self.ticket, self.account, direction="Sent")
+        recipient = unique_email("followup-supplier")
+        copied = unique_email("followup-copied")
+        mail.db_set("sender", self.address)
+        mail.db_set("recipients", recipient)
+        mail.db_set("cc", copied)
+        with self.set_user(self.agent):
+            selected = self.ticket.get_reply_recipients(communication=mail.name)
+            defaults = self.ticket.get_reply_recipients()
+        expected = {"to": [recipient], "cc": [copied], "bcc": []}
+        self.assertEqual(selected, expected)
+        self.assertEqual(defaults, expected)

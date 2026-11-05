@@ -2,11 +2,13 @@ import { createResource } from "frappe-ui";
 import { computed, ref, watch, type Ref } from "vue";
 
 type Mailbox = { email_account: string; email_id: string };
+type ReplyRecipients = { to: string[]; cc: string[]; bcc: string[] };
 type SenderPolicy = {
   ticket: string;
   enabled: boolean;
   sender: Mailbox | null;
   available_senders: Mailbox[];
+  reply_recipients?: ReplyRecipients;
 };
 
 export function useReplySender(
@@ -21,6 +23,7 @@ export function useReplySender(
   const receivingAccount = ref<Mailbox | null>(null);
   const availableSenders = ref<Mailbox[]>([]);
   const error = ref("");
+  const replyRecipients = ref<ReplyRecipients | null>(null);
   let generation = 0;
   const request = createResource({ url: "run_doc_method" });
   const options = computed(() => {
@@ -57,6 +60,7 @@ export function useReplySender(
     receivingAccount.value = null;
     availableSenders.value = [];
     error.value = "";
+    replyRecipients.value = null;
     try {
       const response = await request.submit({
         dt: "HD Ticket",
@@ -81,6 +85,7 @@ export function useReplySender(
       fromEmail.value = policy.enabled
         ? receivingEmail.value
         : legacySender.value;
+      replyRecipients.value = policy.reply_recipients ?? null;
       ready.value = true;
       reconcile();
     } catch {
@@ -105,6 +110,7 @@ export function useReplySender(
     receivingMailboxMode,
     receivingEmail,
     error,
+    replyRecipients,
     reload,
   };
 }

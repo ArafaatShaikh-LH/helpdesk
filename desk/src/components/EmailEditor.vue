@@ -403,6 +403,12 @@ function onQuotedInput() {
   quotedContent.value = el.innerHTML || null;
 }
 
+// Keep saved/edited drafts intact when asynchronous recipient defaults arrive.
+const hasSavedRecipients = ["emailBoxTo", "emailBoxCc", "emailBoxBcc"].some(
+  (key) => localStorage.getItem(userStorageKey(key + props.ticketId)) !== null
+);
+let recipientsEdited = hasSavedRecipients;
+let applyingRecipientDefaults = false;
 const toEmailsClone = useStorage<string[]>(
   userStorageKey("emailBoxTo" + props.ticketId),
   [...props.toEmails] as string[],
@@ -455,9 +461,24 @@ const {
   receivingEmail,
   error: senderPolicyError,
   reload: loadSenderPolicy,
+  replyRecipients,
   selected: selectedFromEmail,
   options: senderAccounts,
 } = useReplySender(() => props.ticketId, outgoingEmails, legacyFromEmail);
+
+watch([toEmailsClone, ccEmailsClone, bccEmailsClone], () => {
+  if (!applyingRecipientDefaults) recipientsEdited = true;
+}, { deep: true, flush: "sync" });
+watch(replyRecipients, (defaults) => {
+  if (!defaults || recipientsEdited || quotedContent.value ||
+      (!isContentEmpty(newEmail.value) && !isOnlySignature(newEmail.value))) return;
+  applyingRecipientDefaults = true;
+  toEmailsClone.value = [...defaults.to];
+  ccEmailsClone.value = [...defaults.cc];
+  bccEmailsClone.value = [];
+  applyingRecipientDefaults = false;
+});
+
 
 const from = computed(() => {
   if (!senderAccounts.value.length) return [];
@@ -681,9 +702,10 @@ function addToReply(
   ccEmails: string[],
   bccEmails: string[]
 ) {
-  toEmailsClone.value = toEmails;
-  ccEmailsClone.value = ccEmails;
-  bccEmailsClone.value = bccEmails;
+  recipientsEdited = true;
+  toEmailsClone.value = toEmails ?? [];
+  ccEmailsClone.value = ccEmails ?? [];
+  bccEmailsClone.value = bccEmails ?? [];
 
   // Plain-text emails (e.g. Thunderbird) have no HTML tags, so their newlines/spacing
   // thus lose formatting when added to replied content
@@ -717,9 +739,12 @@ function resetState() {
 }
 
 function resetRecipients() {
-  toEmailsClone.value = [...props.toEmails] as string[];
-  ccEmailsClone.value = [...props.ccEmails] as string[];
-  bccEmailsClone.value = [...props.bccEmails] as string[];
+  applyingRecipientDefaults = true;
+  toEmailsClone.value = [...(replyRecipients.value?.to ?? props.toEmails)] as string[];
+  ccEmailsClone.value = [...(replyRecipients.value?.cc ?? props.ccEmails)] as string[];
+  bccEmailsClone.value = [];
+  applyingRecipientDefaults = false;
+  recipientsEdited = false;
 }
 
 function handleDiscard() {
