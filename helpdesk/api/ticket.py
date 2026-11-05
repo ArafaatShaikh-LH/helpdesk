@@ -4,61 +4,6 @@ from frappe import _
 from helpdesk.utils import agent_only, is_admin
 
 
-@frappe.whitelist(methods=["POST"])
-@agent_only
-def apply_classification_review(
-    ticket_id: str,
-    main_category: str,
-    classification: str = "",
-    classification_2: str = "",
-    note: str = "",
-):
-    """Apply an agent classification decision with a record of previous values."""
-    from frappe.utils import now_datetime
-    from helpdesk.patches.approved_ticket_classification import MAIN
-
-    if main_category not in MAIN or main_category == "Human Review":
-        frappe.throw(_("Choose a final Main Category."))
-    allowed_classifications = {
-        "Contracts": {"Transfer Contract", "Xml", "Chm", "Extranet", "Fit"},
-        "Contract Queries": {"Booking Amendment", "Booking Query", "Vcc"},
-    }
-    allowed_second = {
-        "Contracts": {"Amendment", "Loading", "Supplier Query", "Content", "Special Offers Amendment", "Special Offers", "Finance", "Tech"},
-        "Contract Queries": {"Accommodation", "Transfers"},
-    }
-    if classification not in allowed_classifications.get(main_category, {""}):
-        frappe.throw(_("Invalid Classification."))
-    if classification_2 not in allowed_second.get(main_category, {""}):
-        frappe.throw(_("Invalid Classification 2."))
-    ticket = frappe.get_doc("HD Ticket", ticket_id)
-    frappe.has_permission("HD Ticket", "write", doc=ticket, throw=True)
-    if not frappe.db.exists("HD Team", main_category):
-        frappe.throw(_("The selected category has no matching Team."))
-
-    audit = frappe.get_doc({
-        "doctype": "HD Classification Review",
-        "ticket": ticket.name,
-        "reviewed_by": frappe.session.user,
-        "reviewed_at": now_datetime(),
-        "original_main_category": ticket.custom_main_category,
-        "original_classification": ticket.custom_classification_category,
-        "original_classification_2": ticket.custom_classification_2_category,
-        "reviewed_main_category": main_category,
-        "reviewed_classification": classification or None,
-        "reviewed_classification_2": classification_2 or None,
-        "note": note or None,
-    })
-    ticket.flags.classification_review = True
-    ticket.custom_main_category = main_category
-    ticket.agent_group = main_category
-    ticket.custom_classification_category = classification or None
-    ticket.custom_classification_2_category = classification_2 or None
-    ticket.save(ignore_permissions=True)
-    audit.insert(ignore_permissions=True)
-    return {"ticket": ticket.name, "team": ticket.agent_group, "review": audit.name}
-
-
 @frappe.whitelist()
 @agent_only
 def bulk_reply(ticket_ids: list, message: str, attachments: list | None = None):

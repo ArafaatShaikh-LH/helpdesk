@@ -74,38 +74,6 @@
           </div>
         </Section>
 
-        <Section
-          v-if="ticket.doc && auth.isAgent"
-          :label="__('Change classification / team')"
-          v-model:opened="openedSections.classificationReview"
-        >
-          <div class="space-y-3 pb-3 pt-1">
-            <p class="text-sm text-ink-gray-6">Choose where this ticket belongs. Your selection will update its reporting category and Team together.</p>
-            <label class="block text-sm font-medium">Main category
-              <select v-model="reviewMain" class="mt-1 w-full rounded border p-2">
-                <option value="">Select a category</option>
-                <option v-for="option in reviewCategories" :key="option" :value="option">{{ option }}</option>
-              </select>
-            </label>
-            <label v-if="reviewClassifications.length" class="block text-sm font-medium">Classification
-              <select v-model="reviewClass" class="mt-1 w-full rounded border p-2">
-                <option value="">Select a classification</option>
-                <option v-for="option in reviewClassifications" :key="option" :value="option">{{ option }}</option>
-              </select>
-            </label>
-            <label v-if="reviewSecondChoices.length" class="block text-sm font-medium">Classification 2
-              <select v-model="reviewSecond" class="mt-1 w-full rounded border p-2">
-                <option value="">Select Classification 2</option>
-                <option v-for="option in reviewSecondChoices" :key="option" :value="option">{{ option }}</option>
-              </select>
-            </label>
-            <label class="block text-sm font-medium">Note (optional)
-              <textarea v-model="reviewNote" class="mt-1 w-full rounded border p-2" rows="2" />
-            </label>
-            <Button :label="__('Apply classification and team')" :disabled="!canApplyReview || applyReview.loading" @click="submitReview" />
-          </div>
-        </Section>
-
         <!-- Ticket Info (custom fields) -->
         <div v-if="Boolean(customFields.length)">
           <Section
@@ -186,8 +154,6 @@ import { parseField } from "@/composables/formCustomisation";
 import { useNotifyTicketUpdate } from "@/composables/realtime";
 import { useShortcut } from "@/composables/shortcuts";
 import { getMeta } from "@/stores/meta";
-import { useAuthStore } from "@/stores/auth";
-import { protectedClassificationFields } from "@/utils/approvedClassification";
 import { useTicketStatusStore } from "@/stores/ticketStatus";
 import { __ } from "@/translation.ts";
 import {
@@ -198,7 +164,7 @@ import {
   TicketSymbol,
 } from "@/types";
 import { useResizeObserver, useStorage } from "@vueuse/core";
-import { createResource, dayjs, toast } from "frappe-ui";
+import { dayjs } from "frappe-ui";
 import { computed, inject, ref } from "vue";
 import FieldLabel from "../FieldLabel.vue";
 import Section from "../Section.vue";
@@ -214,45 +180,6 @@ const assignees = inject(AssigneeSymbol)!;
 const customizations = inject(CustomizationSymbol)!;
 const recentSimilarTickets = inject(RecentSimilarTicketsSymbol)!;
 const { getFields, getField } = getMeta("HD Ticket");
-const auth = useAuthStore();
-const reviewCategories = ["Contracts", "Contract Queries", "Allocation", "Special Offers", "Stop Sales"];
-const reviewMain = ref("");
-const reviewClass = ref("");
-const reviewSecond = ref("");
-const reviewNote = ref("");
-const classificationsByCategory: Record<string, string[]> = {
-  Contracts: ["Transfer Contract", "Xml", "Chm", "Extranet", "Fit"],
-  "Contract Queries": ["Booking Amendment", "Booking Query", "Vcc"],
-};
-const secondByCategory: Record<string, string[]> = {
-  Contracts: ["Amendment", "Loading", "Supplier Query", "Content", "Special Offers Amendment", "Special Offers", "Finance", "Tech"],
-  "Contract Queries": ["Accommodation", "Transfers"],
-};
-const reviewClassifications = computed(() => classificationsByCategory[reviewMain.value] || []);
-const reviewSecondChoices = computed(() => secondByCategory[reviewMain.value] || []);
-const canApplyReview = computed(() => !!reviewMain.value &&
-  (!reviewClassifications.value.length || !!reviewClass.value) &&
-  (!reviewSecondChoices.value.length || !!reviewSecond.value) &&
-  (!reviewClass.value || reviewClassifications.value.includes(reviewClass.value)) &&
-  (!reviewSecond.value || reviewSecondChoices.value.includes(reviewSecond.value)));
-const applyReview = createResource({ url: "helpdesk.api.ticket.apply_classification_review" });
-async function submitReview() {
-  if (!canApplyReview.value) return;
-  try {
-    await applyReview.submit({
-      ticket_id: ticket.value.doc.name,
-      main_category: reviewMain.value,
-      classification: reviewClass.value,
-      classification_2: reviewSecond.value,
-      note: reviewNote.value,
-    });
-    await ticket.value.reload();
-    assignees.value.reload();
-    toast.success(__("Classification and Team updated"));
-  } catch (error: any) {
-    toast.error(error?.messages?.[0] || __("Could not apply classification"));
-  }
-}
 const { notifyTicketUpdate } = useNotifyTicketUpdate(ticket.value?.name);
 
 const dateFormat = window.date_format;
@@ -335,7 +262,6 @@ const openedSections = useStorage(
   {
     feedback: true,
     keyInfo: true,
-    classificationReview: true,
     ticketInfo: true,
     recentTickets: false,
     similarTickets: false,
@@ -387,8 +313,7 @@ function openTicket(name: string) {
 }
 
 function getFieldInFormat(fieldTemplate, fieldMeta) {
-  const readonly = Boolean(fieldMeta.read_only) ||
-    (protectedClassificationFields.has(fieldTemplate.fieldname) && !auth.isAdmin);
+  const readonly = Boolean(fieldMeta.read_only);
   return {
     label: fieldMeta?.label || fieldTemplate.fieldname,
     value: ticket.value.doc[fieldTemplate.fieldname],
@@ -427,7 +352,7 @@ function handleFieldUpdate(
     { [fieldname]: value },
     {
       onSuccess: () => {
-        if (fieldname === "agent_group") {
+        if (fieldname === "agent_group" || fieldname === "custom_main_category") {
           assignees.value.reload();
         }
       },

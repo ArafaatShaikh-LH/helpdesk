@@ -92,27 +92,78 @@ class HDTicket(Document):
         self.validate_classification_edit()
 
     def validate_classification_edit(self):
-        """Agents may view AI classifications, but cannot change them later."""
-        old = self.get_doc_before_save()
-        if (
-            not old
-            or self.flags.get("classification_review")
-            or "System Manager" in frappe.get_roles()
-            or frappe.session.user == "Administrator"
-        ):
-            return
-        protected = (
-            "custom_main_category",
-            "custom_classification_category",
-            "custom_classification_2_category",
-            "custom_historic_classification",
-            "custom_historic_classification_2",
+        """Allow approved agent selections while protecting historical values."""
+        from helpdesk.patches.approved_ticket_classification import (
+            MAIN, CLASSIFICATION, CLASSIFICATION_2,
         )
-        if any(self.get(field) != old.get(field) for field in protected):
-            frappe.throw(
-                _("Only a system administrator can change ticket classification."),
-                frappe.PermissionError,
-            )
+
+        old = self.get_doc_before_save()
+        if not old:
+            return
+        is_manager = (
+            frappe.session.user == "Administrator"
+            or "System Manager" in frappe.get_roles()
+        )
+        historic = ("custom_historic_classification", "custom_historic_classification_2")
+        if not is_manager and any(self.get(f) != old.get(f) for f in historic):
+            frappe.throw(_("Only a system administrator can change historic classification."), frappe.PermissionError)
+        fields = {
+            "custom_main_category": MAIN,
+            "custom_classification_category": CLASSIFICATION,
+            "custom_classification_2_category": CLASSIFICATION_2,
+        }
+        changed = [f for f in fields if self.get(f) != old.get(f)]
+        if not changed:
+            return
+        if not is_manager and not is_agent():
+            frappe.throw(_("Only agents can change ticket classification."), frappe.PermissionError)
+        for field in changed:
+            value = self.get(field)
+            if value and value not in fields[field]:
+                frappe.throw(_("Choose an existing classification option."))
+        self.validate_classification_choices(old)
+
+    def validate_classification_choices(self, old):
+        choices = {
+            "Contracts": (
+                {"Transfer Contract", "Xml", "Chm", "Extranet", "Fit"},
+                {"Amendment", "Loading", "Supplier Query", "Content", "Special Offers Amendment", "Special Offers", "Finance", "Tech"},
+            ),
+            "Contract Queries": (
+                {"Booking Amendment", "Booking Query", "Vcc"},
+                {"Accommodation", "Transfers"},
+            ),
+        }
+        allowed = choices.get(self.custom_main_category, (set(), set()))
+        category_changed = self.custom_main_category != old.get("custom_main_category")
+        for field, options in zip(
+            ("custom_classification_category", "custom_classification_2_category"), allowed
+        ):
+            value = self.get(field)
+            if not value or value in options:
+                continue
+            if category_changed and value == old.get(field):
+                self.set(field, None)
+            elif value != old.get(field):
+                frappe.throw(_("Choose a classification matching the Main Category."))
+
+    def record_classification_change(self):
+        old = self.get_doc_before_save()
+        fields = ("custom_main_category", "custom_classification_category", "custom_classification_2_category")
+        if not old or not any(self.get(f) != old.get(f) for f in fields):
+            return
+        frappe.get_doc({
+            "doctype": "HD Classification Review",
+            "ticket": self.name,
+            "reviewed_by": frappe.session.user,
+            "reviewed_at": now_datetime(),
+            "original_main_category": old.get(fields[0]),
+            "original_classification": old.get(fields[1]),
+            "original_classification_2": old.get(fields[2]),
+            "reviewed_main_category": self.get(fields[0]),
+            "reviewed_classification": self.get(fields[1]),
+            "reviewed_classification_2": self.get(fields[2]),
+        }).insert(ignore_permissions=True)
 
     def route_classification_team(self):
         """Choose the queue after AI sets or changes Main category."""
@@ -280,6 +331,7 @@ class HDTicket(Document):
                         reopened_by=self.flags.reopened_by,
                     )
 
+        self.record_classification_change()
         self.remove_assignment_if_not_in_team()
         self.publish_update()
         self.capture_update_telemetry_events()

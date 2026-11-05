@@ -304,8 +304,6 @@ import {
 } from "@/composables/useTicket";
 import { globalStore } from "@/stores/globalStore";
 import { getMeta } from "@/stores/meta";
-import { useAuthStore } from "@/stores/auth";
-import { protectedClassificationFields } from "@/utils/approvedClassification";
 import { useTelephonyStore } from "@/stores/telephony";
 import { useTicketStatusStore } from "@/stores/ticketStatus";
 import {
@@ -324,7 +322,6 @@ import { useRouter } from "vue-router";
 
 const telephonyStore = useTelephonyStore();
 const { isCallingEnabled } = storeToRefs(telephonyStore);
-const auth = useAuthStore();
 
 const ticketStatusStore = useTicketStatusStore();
 const router = useRouter();
@@ -436,10 +433,8 @@ const ticketFields = computed(() => {
         options: fieldMeta?.options || "",
         placeholder:
           f.placeholder || `Enter ${fieldMeta?.label || f.fieldname}`,
-        readonly: Boolean(fieldMeta.read_only) ||
-          (protectedClassificationFields.has(f.fieldname) && !auth.isAdmin),
-        disabled: Boolean(fieldMeta.read_only) ||
-          (protectedClassificationFields.has(f.fieldname) && !auth.isAdmin),
+        readonly: Boolean(fieldMeta.read_only),
+        disabled: Boolean(fieldMeta.read_only),
         url_method: f.url_method || "",
         required: f.required || fieldMeta?.reqd || false,
         visible:
