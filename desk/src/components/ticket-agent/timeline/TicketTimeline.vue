@@ -148,12 +148,10 @@ import {
   useTicket,
   type PinnedComment,
 } from "@/composables/useTicket";
-import { useAuthStore } from "@/stores/auth";
 import { globalStore } from "@/stores/globalStore";
-import { useUserStore } from "@/stores/user";
 import { __ } from "@/translation";
 import { TicketSymbol } from "@/types";
-import { copyActivityLink } from "@/utils";
+import { copyActivityLink, toast } from "@/utils";
 import {
   ActivityTimeline,
   EmailItem,
@@ -192,8 +190,6 @@ const emit = defineEmits<{ "email:reply": [payload: object] }>();
 
 const route = useRoute();
 const router = useRouter();
-const authStore = useAuthStore();
-const { getUser } = useUserStore();
 const { $socket } = globalStore();
 const ticket = inject(TicketSymbol)!;
 
@@ -374,57 +370,32 @@ function showSplitOption(activity: EmailActivity): boolean {
   return !isFirstEmail(activity) && ticket.value?.doc?.status !== "Closed";
 }
 
-// sender is an email address; userId may be the raw session user
-function isSelf(email: string): boolean {
-  return (
-    authStore.userId === email || getUser(authStore.userId)?.email === email
-  );
+// Shared mailboxes are not the logged-in agent's personal address. Resolve
+// recipients on the server using message direction and configured accounts.
+let replyRequest = 0;
+async function prepareReply(activity: EmailActivity, replyAll: boolean) {
+  const request = ++replyRequest;
+  try {
+    const response = await call("run_doc_method", {
+      dt: "HD Ticket",
+      dn: props.ticketId,
+      method: "get_reply_recipients",
+      args: { communication: activity.data.name, reply_all: replyAll },
+    });
+    if (request !== replyRequest) return;
+    const recipients = response?.message ?? response;
+    emit("email:reply", { content: activity.data.content, ...recipients });
+  } catch {
+    toast.error(__("Could not determine reply recipients. Please retry."));
+  }
 }
 
 function reply(activity: EmailActivity) {
-  const { sender, content } = activity.data;
-  emit("email:reply", {
-    content,
-    to: isSelf(sender) ? activity.data.to : sender,
-  });
+  return prepareReply(activity, false);
 }
 
 function replyAll(activity: EmailActivity) {
-  const { sender, to, cc, bcc, content } = activity.data;
-  const exclude = [authStore.userId, getUser(authStore.userId)?.email, sender];
-  const filteredTo = splitRecipients(to, exclude);
-  const filteredCc = splitRecipients(cc, exclude);
-  const filteredBcc = splitRecipients(bcc, exclude);
-  const isSender = isSelf(sender);
-  emit("email:reply", {
-    content,
-    to: isSender ? filteredTo.join(", ") : sender,
-    cc: isSender ? filteredCc : [...filteredTo, ...filteredCc],
-    bcc: filteredBcc,
-  });
-}
-
-// comma split that respects quoted display names: '"Kapoor, Riya" <r@x>'
-function splitRecipients(
-  field: string | undefined,
-  exclude: string[]
-): string[] {
-  const parts: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  for (const char of field ?? "") {
-    if (char === '"') {
-      inQuotes = !inQuotes;
-      current += char;
-    } else if (char === "," && !inQuotes) {
-      parts.push(current.trim());
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  if (current) parts.push(current.trim());
-  return parts.filter(Boolean).filter((item) => !exclude.includes(item));
+  return prepareReply(activity, true);
 }
 
 // deep links arrive as ?highlight=comment-<name> / communication-<name>;
