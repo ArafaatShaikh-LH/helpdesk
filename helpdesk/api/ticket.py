@@ -13,7 +13,7 @@ def apply_classification_review(
     classification_2: str = "",
     note: str = "",
 ):
-    """Apply a human decision while retaining the AI values for audit/reporting."""
+    """Apply an agent classification decision with a record of previous values."""
     from frappe.utils import now_datetime
     from helpdesk.patches.approved_ticket_classification import MAIN
 
@@ -33,8 +33,6 @@ def apply_classification_review(
         frappe.throw(_("Invalid Classification 2."))
     ticket = frappe.get_doc("HD Ticket", ticket_id)
     frappe.has_permission("HD Ticket", "write", doc=ticket, throw=True)
-    if ticket.custom_main_category != "Human Review":
-        frappe.throw(_("This ticket is no longer awaiting human review."))
     if not frappe.db.exists("HD Team", main_category):
         frappe.throw(_("The selected category has no matching Team."))
 
@@ -53,6 +51,7 @@ def apply_classification_review(
     })
     ticket.flags.classification_review = True
     ticket.custom_main_category = main_category
+    ticket.agent_group = main_category
     ticket.custom_classification_category = classification or None
     ticket.custom_classification_2_category = classification_2 or None
     ticket.save(ignore_permissions=True)

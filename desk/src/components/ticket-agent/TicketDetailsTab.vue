@@ -75,8 +75,8 @@
         </Section>
 
         <Section
-          v-if="ticket.doc?.custom_main_category === 'Human Review' && auth.isAgent"
-          :label="__('Review classification')"
+          v-if="ticket.doc && auth.isAgent"
+          :label="__('Change classification / team')"
           v-model:opened="openedSections.classificationReview"
         >
           <div class="space-y-3 pb-3 pt-1">
@@ -102,7 +102,7 @@
             <label class="block text-sm font-medium">Note (optional)
               <textarea v-model="reviewNote" class="mt-1 w-full rounded border p-2" rows="2" />
             </label>
-            <Button :label="__('Apply reviewed classification')" :disabled="!canApplyReview || applyReview.loading" @click="submitReview" />
+            <Button :label="__('Apply classification and team')" :disabled="!canApplyReview || applyReview.loading" @click="submitReview" />
           </div>
         </Section>
 
