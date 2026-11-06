@@ -3,7 +3,7 @@ import uuid
 from email.utils import parseaddr
 
 import frappe
-from bs4 import BeautifulSoup, Comment
+from bs4 import BeautifulSoup
 from frappe import _
 from frappe.core.page.permission_manager.permission_manager import remove
 from frappe.desk.form.assign_to import add as assign
@@ -27,6 +27,7 @@ from helpdesk.helpdesk.utils.email import (
 )
 from helpdesk.notifications import clear as clear_notifications
 from helpdesk.notifications import notify_ticket_reopened
+from helpdesk.reply_html import ReplyHTMLParser
 from helpdesk.utils import (
     capture_event,
     get_agents_team,
@@ -1556,22 +1557,10 @@ class HDTicket(Document):
         if not content:
             return ""
 
-        soup = BeautifulSoup(content, "html.parser")
-
-        # comments (e.g. Outlook MSO conditionals in quoted replies) get mangled
-        # by the markdown conversion in sendmail and show up as visible text
-        for comment in soup.find_all(string=lambda s: isinstance(s, Comment)):
-            comment.extract()
-
-        for tag in soup.find_all(["img", "video"]):
-            src = tag.get("src")
-            # only site files can be embedded; external URLs must keep their src
-            if not src or not src.startswith(("/private/files/", "/files/")):
-                continue
-            tag["embed"] = src
-            del tag["src"]
-
-        return str(soup)
+        parser = ReplyHTMLParser()
+        parser.feed(content)
+        parser.close()
+        return "".join(parser.parts)
 
     @staticmethod
     def filter_standard_fields(fields):

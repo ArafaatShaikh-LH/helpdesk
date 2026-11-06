@@ -143,6 +143,37 @@ class TestHDTicket(FrappeTestCase):
         self.assertNotIn("<!--", parsed)
         self.assertIn("<p>Dear Admin,</p>", parsed)
 
+    def test_parse_content_preserves_deeply_nested_quote(self):
+        ticket = make_ticket()
+        content = (
+            "<blockquote>"
+            + "<div>" * 3000
+            + "<p>Quoted reply &amp; details &#163;10</p>"
+            + "</div>\n" * 3000
+            + "</blockquote>"
+        )
+        self.assertEqual(ticket.parse_content(content), content)
+
+    def test_parse_content_preserves_formatting_and_media_attributes(self):
+        ticket = make_ticket()
+        content = (
+            '<table><tr><td><a href="https://example.com/?a=1&amp;b=2">'
+            "Terms &amp; conditions</a></td></tr></table>"
+            '<img src="cid:existing-image"><br><span>Résumé &#169;</span>'
+        )
+        self.assertEqual(ticket.parse_content(content), content)
+        for media in ("img", "video"):
+            with self.subTest(media=media):
+                parsed = ticket.parse_content(
+                    f'<{media} SRC="/private/files/a&amp;b.png" '
+                    'alt="A &quot;quote&quot;" controls embed="stale"/>'
+                )
+                self.assertIn('embed="/private/files/a&amp;b.png"', parsed)
+                self.assertIn('alt="A &quot;quote&quot;"', parsed)
+                self.assertNotIn("src=", parsed)
+                self.assertNotIn("stale", parsed)
+                self.assertEqual(parsed.count("embed="), 1)
+
     def test_agent_flow(self):
         ticket = frappe.get_doc(get_ticket_obj())
         ticket.insert()
