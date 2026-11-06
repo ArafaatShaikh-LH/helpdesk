@@ -2,8 +2,9 @@
 
 ## Behaviour
 
-Agent replies pass through `HDTicket.parse_content` before a Communication or
-outgoing email queue entry is created. `ReplyHTMLParser` transforms that HTML as
+Agent replies pass through `HDTicket.parse_content` before the outgoing
+email is queued. A failure rolls back the reply transaction, including its
+new Communication. `ReplyHTMLParser` transforms that HTML as
 a stream rather than building and serializing a BeautifulSoup tag tree.
 
 It removes HTML comments (including Outlook conditional comments) and converts
