@@ -1,45 +1,30 @@
+import { createTicketPresence } from "./ticketPresence.js";
 import { useAuthStore } from "@/stores/auth";
 import { globalStore } from "@/stores/globalStore";
-import { reactive, ref, watch } from "vue";
-
-const currentViewers = reactive<Record<string, string[]> | null>({});
+import { reactive, ref, watch, onScopeDispose } from "vue";
 
 export function useActiveViewers(ticketId: string) {
   const { $socket } = globalStore();
-
   const { userId } = useAuthStore();
-  $socket.on("ticket_viewers", (data: { ticket_id: string; users: string }) => {
-    if (data.ticket_id === ticketId) {
-      const viewers = JSON.parse(data.users).filter(
-        (u: string) => u !== userId
-      );
-      currentViewers[ticketId] = viewers;
-    }
+  const currentViewers = reactive<Record<string, string[]>>({});
+  const presenceStatus = ref("connecting");
+  let activeTicket = String(ticketId);
+  const controller = createTicketPresence($socket, userId, ({ status, viewers }) => {
+    currentViewers[activeTicket] = viewers;
+    presenceStatus.value = status;
   });
-
-  const handleBeforeUnload = (_ticketId: string) => {
-    $socket.emit("stop_view_ticket", _ticketId);
+  const startViewing = (id: string) => {
+    controller.stopViewing(activeTicket);
+    activeTicket = String(id);
+    controller.startViewing(id);
   };
-  const startViewing = (_ticketId: string) => {
-    $socket.emit("view_ticket", _ticketId);
-    window.addEventListener("beforeunload", () =>
-      handleBeforeUnload(_ticketId)
-    );
-  };
-
-  const stopViewing = (_ticketId: string) => {
-    $socket.emit("stop_view_ticket", _ticketId);
-
-    window.removeEventListener("beforeunload", () =>
-      handleBeforeUnload(_ticketId)
-    );
-  };
-
-  return {
-    currentViewers,
-    startViewing,
-    stopViewing,
-  };
+  const beforeUnload = () => controller.cleanup();
+  window.addEventListener("beforeunload", beforeUnload);
+  onScopeDispose(() => {
+    controller.cleanup();
+    window.removeEventListener("beforeunload", beforeUnload);
+  });
+  return { currentViewers, presenceStatus, startViewing, stopViewing: controller.stopViewing };
 }
 
 export function useNotifyTicketUpdate(ticketId: string) {

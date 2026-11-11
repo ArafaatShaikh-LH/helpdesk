@@ -4,7 +4,7 @@
     :key="ticketId"
     class="flex min-h-0 flex-1 flex-col overflow-hidden"
   >
-    <TicketHeader :viewers="viewers" />
+    <TicketHeader :viewers="viewers" :presence-status="presenceStatus" />
     <div class="flex min-h-0 flex-1 overflow-hidden">
       <TicketListPane />
       <div class="min-w-0 flex-1 flex flex-col overflow-hidden">
@@ -159,11 +159,11 @@ provide("makeCall", () => {
 provide("refreshTicket", () => reloadTicket(props.ticketId));
 provide("onCallEnded", () => reloadTicket(props.ticketId));
 
-const viewerComposable = computed(() => useActiveViewers(ticket.value.name));
+const viewerComposable = useActiveViewers(props.ticketId);
 const viewers = computed(
-  () => viewerComposable.value.currentViewers[props.ticketId] || []
+  () => viewerComposable.currentViewers[props.ticketId] || []
 );
-const { startViewing, stopViewing } = viewerComposable.value;
+const { startViewing, stopViewing, presenceStatus } = viewerComposable;
 
 // handling for faster navigation between tickets
 watch(

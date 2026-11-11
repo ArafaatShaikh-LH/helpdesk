@@ -25,11 +25,7 @@
           <template #prefix><LucidePanelLeft class="size-4" /></template>
         </Button>
         <TicketNavigation />
-        <MultipleAvatar
-          :avatars="JSON.stringify(viewers)"
-          size="md"
-          :hide-name="true"
-        />
+        <TicketPresence :viewers="viewers" :status="presenceStatus" />
         <!-- Custom Actions -->
         <div v-if="normalActions.length" class="flex gap-2">
           <Button v-for="action in normalActions" v-bind="action">
@@ -90,7 +86,6 @@
 import LucideChevronUp from "~icons/lucide/chevron-up";
 import LucideChevronDown from "~icons/lucide/chevron-down";
 import Icon from "@/components/Icon.vue";
-import { MultipleAvatar } from "@/components";
 import LayoutHeader from "@/components/LayoutHeader.vue";
 import TicketMergeModal from "@/components/ticket/TicketMergeModal.vue";
 import { showMergeModal } from "@/pages/ticket/modalStates";
@@ -131,6 +126,7 @@ import { useRoute, useRouter } from "vue-router";
 import LucideMerge from "~icons/lucide/merge";
 import { IndicatorIcon } from "../icons";
 import TicketSubjectModal from "./TicketSubjectModal.vue";
+import TicketPresence from "./TicketPresence.vue";
 import TicketNavigation from "./TicketNavigation.vue";
 import LucidePanelLeft from "~icons/lucide/panel-left";
 import {
@@ -141,6 +137,7 @@ const { isAdmin } = useAuthStore();
 const { $dialog } = globalStore();
 
 defineProps({
+  presenceStatus: { type: String, default: "connecting" },
   viewers: {
     type: Array as PropType<string[]>,
     required: true,
